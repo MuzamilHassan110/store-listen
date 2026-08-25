@@ -13,6 +13,7 @@ import {
   getConversationRuleResults,
   type RuleEvaluation,
 } from "./rules.service.js";
+import { processConversationInsights } from "./lead.service.js";
 import { scoreConversation, type ConversationScore } from "./scoring.service.js";
 import { downloadRecordingBuffer, recordingPathFromConversation } from "./storage.service.js";
 
@@ -246,6 +247,19 @@ export async function persistAnalysisResult(input: {
   const hasScores = analysis.overall_score != null;
   await setConversationStatus(input.conversationId, hasScores ? "scored" : "analyzed");
 
+  if (organizationId) {
+    try {
+      await processConversationInsights({
+        conversationId: input.conversationId,
+        organizationId,
+        overallScore: analysis.overall_score,
+        ruleCompliance: analysis.rule_compliance_score,
+      });
+    } catch (err) {
+      logger.error({ err, conversationId: input.conversationId }, "Lead/notification hook failed");
+    }
+  }
+
   const { data: conversation } = await getSupabase().from("conversations").select("*").eq("id", input.conversationId).single();
   return {
     conversation: conversation ?? { id: input.conversationId, status: hasScores ? "scored" : "analyzed" },
@@ -291,6 +305,16 @@ export async function scoreExistingConversation(
   }
 
   await setConversationStatus(conversationId, "scored");
+  try {
+    await processConversationInsights({
+      conversationId,
+      organizationId,
+      overallScore: score.overall_score,
+      ruleCompliance: score.rule_compliance_score,
+    });
+  } catch (err) {
+    logger.error({ err, conversationId }, "Lead/notification hook failed");
+  }
   const refreshed = await getConversationBundle(conversationId, organizationId);
   if (!refreshed) throw new HttpError(404, "Conversation not found.", "NOT_FOUND");
   return refreshed;

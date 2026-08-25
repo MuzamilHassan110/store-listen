@@ -1,12 +1,15 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, FileText, LayoutDashboard, ListChecks, LogOut, Menu, MessageSquare, Trophy, X } from "lucide-react";
+import { BarChart3, CalendarClock, FileText, LayoutDashboard, ListChecks, LogOut, Menu, MessageSquare, Trophy, Users, X } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../../lib/auth";
+import { Notifications } from "../Notifications";
 import { Button } from "../ui/button";
 
 const LINKS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/conversations", label: "Conversations", icon: MessageSquare },
+  { to: "/followups", label: "Follow-ups", icon: CalendarClock },
+  { to: "/customers", label: "Customers", icon: Users },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/rules", label: "Rules", icon: ListChecks },
@@ -21,9 +24,12 @@ export function AppLayout() {
     <div className="min-h-screen bg-slate-950 text-slate-100 lg:grid lg:grid-cols-[240px_1fr]">
       <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3 lg:hidden">
         <p className="font-semibold tracking-wide text-emerald-400">StoreListen</p>
-        <button type="button" onClick={() => setOpen((value) => !value)} aria-label="Toggle navigation">
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <Notifications />
+          <button type="button" onClick={() => setOpen((value) => !value)} aria-label="Toggle navigation">
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </header>
 
       <aside
@@ -60,6 +66,9 @@ export function AppLayout() {
       </aside>
 
       <main className="min-w-0 px-4 py-6 lg:px-8">
+        <div className="mb-4 hidden justify-end lg:flex">
+          <Notifications />
+        </div>
         <Outlet />
       </main>
     </div>

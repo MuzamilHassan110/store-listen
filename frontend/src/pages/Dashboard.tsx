@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { fetchAnalytics, fetchConversations } from "../services/api";
-import { formatDateTime, formatDuration } from "../lib/format";
+import { fetchAnalytics, fetchConversations, fetchDueFollowUps, fetchFollowUps, fetchNotifications } from "../services/api";
+import { formatDateTime, formatDueLabel, formatDuration } from "../lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import { EmptyState, ErrorState } from "../components/States";
-import { IntentBadge, StatusBadge } from "../components/conversation/Badges";
+import { IntentBadge, PriorityBadge, StatusBadge } from "../components/conversation/Badges";
 
 const COLORS = ["#34d399", "#f87171", "#94a3b8"];
 
@@ -16,6 +16,12 @@ export default function Dashboard() {
     queryKey: ["conversations", { page: 1, pageSize: 5 }],
     queryFn: () => fetchConversations({ page: 1, pageSize: 5 }),
   });
+  const due = useQuery({ queryKey: ["followups", "due-today"], queryFn: fetchDueFollowUps });
+  const highLeads = useQuery({
+    queryKey: ["followups", { priority: "high", status: "pending" }],
+    queryFn: () => fetchFollowUps({ priority: "high", status: "pending" }),
+  });
+  const notices = useQuery({ queryKey: ["notifications"], queryFn: fetchNotifications });
 
   if (analytics.isLoading) {
     return (
@@ -101,6 +107,57 @@ export default function Dashboard() {
               </ResponsiveContainer>
             ) : (
               <p className="text-sm text-slate-400">No sentiment data yet.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Follow-ups due today</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {due.data?.length ? (
+              due.data.slice(0, 4).map((item) => (
+                <Link key={item.id} to="/followups" className="block rounded-lg bg-slate-950 px-3 py-2 text-sm hover:text-emerald-300">
+                  {item.customer_name || "Customer"} · {formatDueLabel(item.follow_up_date)}
+                </Link>
+              ))
+            ) : (
+              <p className="text-sm text-slate-400">Nothing due today.</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>High-intent leads</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {highLeads.data?.length ? (
+              highLeads.data.slice(0, 4).map((item) => (
+                <Link key={item.id} to="/followups" className="flex items-center justify-between rounded-lg bg-slate-950 px-3 py-2 text-sm">
+                  <span>{item.customer_name || item.product_interest || "Lead"}</span>
+                  <PriorityBadge priority={item.priority} />
+                </Link>
+              ))
+            ) : (
+              <p className="text-sm text-slate-400">No open high-intent leads.</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Latest notifications</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {notices.data?.length ? (
+              notices.data.slice(0, 4).map((item) => (
+                <p key={item.id} className="rounded-lg bg-slate-950 px-3 py-2 text-sm text-slate-300">
+                  {item.title}
+                </p>
+              ))
+            ) : (
+              <p className="text-sm text-slate-400">No notifications yet.</p>
             )}
           </CardContent>
         </Card>

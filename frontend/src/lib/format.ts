@@ -1,4 +1,4 @@
-import { format, formatDistanceToNow, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, formatDistanceToNow, parseISO } from "date-fns";
 import type { ConversationStatus, PurchaseIntent, Sentiment } from "../types/conversation";
 
 export function formatDateTime(value?: string | null): string {
@@ -43,3 +43,13 @@ export const INTENT_LABEL: Record<PurchaseIntent, string> = {
   medium: "Medium intent",
   low: "Low intent",
 };
+
+export function formatDueLabel(value?: string | null): string {
+  if (!value) return "No due date";
+  const days = differenceInCalendarDays(parseISO(value), new Date());
+  if (days === 0) return "Due today";
+  if (days === 1) return "Due in 1 day";
+  if (days > 1) return `Due in ${days} days`;
+  if (days === -1) return "Overdue by 1 day";
+  return `Overdue by ${Math.abs(days)} days`;
+}

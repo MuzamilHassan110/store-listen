@@ -2,12 +2,18 @@ import { endOfDay, format, parseISO, startOfDay } from "date-fns";
 import { supabase } from "../lib/supabase";
 import type {
   Analytics,
+  AppNotification,
   Conversation,
   ConversationAnalysis,
   ConversationFilters,
   ConversationRule,
   ConversationStatus,
+  Customer,
+  CustomerDetail,
   DateRange,
+  FollowUp,
+  FollowUpPriority,
+  FollowUpStatus,
   LeaderboardEntry,
   Paginated,
   PurchaseIntent,
@@ -502,4 +508,84 @@ export function testRuleAgainstText(keywords: string[], sample: string): { match
     }
   }
   return { matched: false, evidence: null };
+}
+
+export async function fetchFollowUps(filters: {
+  status?: FollowUpStatus | "";
+  priority?: FollowUpPriority | "";
+  assigned_to?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+} = {}): Promise<FollowUp[]> {
+  const params = new URLSearchParams();
+  if (filters.status) params.set("status", filters.status);
+  if (filters.priority) params.set("priority", filters.priority);
+  if (filters.assigned_to) params.set("assigned_to", filters.assigned_to);
+  if (filters.search) params.set("search", filters.search);
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  const query = params.toString();
+  return apiJson<FollowUp[]>(`/api/followups${query ? `?${query}` : ""}`);
+}
+
+export async function fetchDueFollowUps(): Promise<FollowUp[]> {
+  return apiJson<FollowUp[]>("/api/followups/due-today");
+}
+
+export async function createFollowUp(input: Partial<FollowUp> & { conversation_id: string }): Promise<FollowUp> {
+  return apiJson<FollowUp>("/api/followups", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function updateFollowUp(id: string, input: Partial<FollowUp>): Promise<FollowUp> {
+  return apiJson<FollowUp>(`/api/followups/${id}`, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function completeFollowUp(id: string, notes?: string): Promise<FollowUp> {
+  return apiJson<FollowUp>(`/api/followups/${id}/complete`, { method: "POST", body: JSON.stringify({ notes }) });
+}
+
+export async function snoozeFollowUp(id: string, follow_up_date: string): Promise<FollowUp> {
+  return apiJson<FollowUp>(`/api/followups/${id}/snooze`, { method: "POST", body: JSON.stringify({ follow_up_date }) });
+}
+
+export async function cancelFollowUp(id: string): Promise<FollowUp> {
+  return apiJson<FollowUp>(`/api/followups/${id}`, { method: "DELETE" });
+}
+
+export async function suggestFollowUpMessage(id: string): Promise<FollowUp> {
+  return apiJson<FollowUp>(`/api/followups/${id}/message`, { method: "POST" });
+}
+
+export async function detectConversationLead(conversationId: string): Promise<FollowUp | null> {
+  return apiJson<FollowUp | null>(`/api/conversations/${conversationId}/detect-leads`, { method: "POST" });
+}
+
+export async function fetchCustomers(search?: string): Promise<Customer[]> {
+  const query = search ? `?search=${encodeURIComponent(search)}` : "";
+  return apiJson<Customer[]>(`/api/customers${query}`);
+}
+
+export async function fetchCustomerById(id: string): Promise<CustomerDetail> {
+  return apiJson<CustomerDetail>(`/api/customers/${id}`);
+}
+
+export async function updateCustomerNotes(id: string, notes: string): Promise<Customer> {
+  return apiJson<Customer>(`/api/customers/${id}`, { method: "PUT", body: JSON.stringify({ notes }) });
+}
+
+export async function fetchNotifications(): Promise<AppNotification[]> {
+  return apiJson<AppNotification[]>("/api/notifications");
+}
+
+export async function markNotificationRead(id: string): Promise<AppNotification> {
+  return apiJson<AppNotification>(`/api/notifications/${id}/read`, { method: "PUT" });
+}
+
+export async function markAllNotificationsRead(): Promise<{ count: number }> {
+  return apiJson<{ count: number }>("/api/notifications/read-all", { method: "PUT" });
+}
+
+export async function deleteNotification(id: string): Promise<{ id: string }> {
+  return apiJson<{ id: string }>(`/api/notifications/${id}`, { method: "DELETE" });
 }

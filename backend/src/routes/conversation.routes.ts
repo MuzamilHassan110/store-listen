@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { detectLeadHandler } from "../controllers/followup.controller.js";
 import {
   getConversationAnalysisHandler,
   getConversationRulesHandler,
@@ -13,3 +14,4 @@ conversationRouter.get("/:id/analysis", requireAuth, getConversationAnalysisHand
 conversationRouter.post("/:id/analyze", requireAuth, retryConversationAnalysisHandler);
 conversationRouter.get("/:id/rules", requireAuth, getConversationRulesHandler);
 conversationRouter.post("/:id/score", requireAuth, scoreConversationHandler);
+conversationRouter.post("/:id/detect-leads", requireAuth, detectLeadHandler);

@@ -1,11 +1,13 @@
 import { HttpError } from "../lib/http-error.js";
 import { logger } from "../lib/logger.js";
+import { getSupabase } from "../lib/supabase.js";
 import { analyzeConversation } from "./analysis.service.js";
 import {
   persistAnalysisResult,
   setConversationStatus,
   type ConversationBundle,
 } from "./conversation.service.js";
+import { createNotification } from "./notification.service.js";
 
 export type AnalysisJob = {
   conversationId: string;
@@ -91,6 +93,24 @@ async function processJob(job: QueuedJob): Promise<AnalysisJobResult> {
     const message = err instanceof HttpError ? err.message : "Gemini analysis failed.";
     const code = err instanceof HttpError ? err.code : "GEMINI_FAILED";
     logger.error({ err, conversationId: job.conversationId }, "Analysis job failed");
+    try {
+      const { data } = await getSupabase()
+        .from("conversations")
+        .select("organization_id")
+        .eq("id", job.conversationId)
+        .maybeSingle();
+      if (data?.organization_id) {
+        await createNotification({
+          organizationId: String(data.organization_id),
+          type: "analysis_failed",
+          title: "AI analysis failed",
+          message,
+          metadata: { conversation_id: job.conversationId, code },
+        });
+      }
+    } catch (notifyError) {
+      logger.warn({ notifyError }, "Could not create analysis-failed notification");
+    }
     return { ok: false, error: { message, code } };
   }
 }

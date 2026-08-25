@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Frown, Meh, Pause, Play, RefreshCw, Smile } from "lucide-react";
-import { fetchConversationAnalysis, retryAnalysis, scoreConversation } from "../services/api";
+import { detectConversationLead, fetchConversationAnalysis, retryAnalysis, scoreConversation } from "../services/api";
 import { formatDateTime, formatDuration } from "../lib/format";
 import { IntentBadge, SentimentBadge, StatusBadge } from "../components/conversation/Badges";
 import { ScoreBar } from "../components/conversation/ScoreBar";
@@ -43,6 +43,13 @@ export default function ConversationDetail() {
       void queryClient.invalidateQueries({ queryKey: ["conversation", id] });
       void queryClient.invalidateQueries({ queryKey: ["conversations"] });
       void queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+    },
+  });
+  const detectLead = useMutation({
+    mutationFn: () => detectConversationLead(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["followups"] });
+      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 
@@ -112,6 +119,11 @@ export default function ConversationDetail() {
               {score.isPending ? "Scoring…" : "Compute scores"}
             </Button>
           ) : null}
+          {analysis ? (
+            <Button variant="secondary" onClick={() => detectLead.mutate()} disabled={detectLead.isPending}>
+              {detectLead.isPending ? "Detecting…" : "Detect lead"}
+            </Button>
+          ) : null}
           {canRetry ? (
             <Button onClick={() => retry.mutate()} disabled={retry.isPending}>
               <RefreshCw className="h-4 w-4" />
@@ -122,6 +134,12 @@ export default function ConversationDetail() {
       </div>
       {retry.isError ? <p className="text-sm text-red-300">{retry.error.message}</p> : null}
       {score.isError ? <p className="text-sm text-red-300">{score.error.message}</p> : null}
+      {detectLead.isError ? <p className="text-sm text-red-300">{detectLead.error.message}</p> : null}
+      {detectLead.isSuccess ? (
+        <p className="text-sm text-emerald-300">
+          {detectLead.data ? "Follow-up created from this conversation." : "No lead met the intent/sentiment rules."}
+        </p>
+      ) : null}
 
       {conversation.recording_url ? (
         <Card>

@@ -164,3 +164,69 @@ export interface Report {
   analytics: Analytics;
   conversations: Conversation[];
 }
+
+export type FollowUpPriority = "high" | "medium" | "low";
+export type FollowUpStatus = "pending" | "completed" | "cancelled" | "snoozed";
+
+export interface FollowUp {
+  id: string;
+  organization_id?: string;
+  conversation_id: string;
+  customer_id?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  product_interest?: string | null;
+  priority: FollowUpPriority;
+  status: FollowUpStatus;
+  follow_up_date?: string | null;
+  notes?: string | null;
+  suggested_message?: string | null;
+  assigned_to?: string | null;
+  lead_score?: number | null;
+  salesman_name?: string | null;
+  conversation_summary?: string | null;
+  conversation_recorded_at?: string | null;
+  completed_at?: string | null;
+  created_at?: string;
+}
+
+export interface Customer {
+  id: string;
+  name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  total_visits: number;
+  total_purchases: number;
+  last_visit_at?: string | null;
+  preferred_language?: string | null;
+  notes?: string | null;
+  purchase_probability?: number;
+}
+
+export interface CustomerDetail extends Customer {
+  interactions: Array<{
+    id: string;
+    conversation_id: string;
+    interaction_type: string | null;
+    notes: string | null;
+    created_at: string;
+  }>;
+  follow_ups: FollowUp[];
+  conversations: Array<{
+    id: string;
+    recorded_at?: string;
+    duration_seconds?: number;
+    status?: string;
+    language?: string;
+  }>;
+}
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}

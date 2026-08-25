@@ -6,7 +6,10 @@ import { Skeleton } from "./components/ui/skeleton";
 import Analytics from "./pages/Analytics";
 import ConversationDetail from "./pages/ConversationDetail";
 import Conversations from "./pages/Conversations";
+import CustomerDetail from "./pages/CustomerDetail";
+import Customers from "./pages/Customers";
 import Dashboard from "./pages/Dashboard";
+import Followups from "./pages/Followups";
 import Leaderboard from "./pages/Leaderboard";
 import Login from "./pages/Login";
 import Reports from "./pages/Reports";
@@ -36,6 +39,9 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/conversations" element={<Conversations />} />
         <Route path="/conversations/:id" element={<ConversationDetail />} />
+        <Route path="/followups" element={<Followups />} />
+        <Route path="/customers" element={<Customers />} />
+        <Route path="/customers/:id" element={<CustomerDetail />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/leaderboard" element={<Leaderboard />} />

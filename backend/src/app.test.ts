@@ -55,3 +55,17 @@ describe("salesman and rules routes", () => {
     expect(conversationRules.status).toBe(401);
   });
 });
+
+describe("follow-up, customer, and notification routes", () => {
+  it("rejects unauthenticated CRM requests", async () => {
+    const followups = await request(app).get("/api/followups");
+    const due = await request(app).get("/api/followups/due-today");
+    const customers = await request(app).get("/api/customers");
+    const notifications = await request(app).get("/api/notifications");
+
+    expect(followups.status).toBe(401);
+    expect(due.status).toBe(401);
+    expect(customers.status).toBe(401);
+    expect(notifications.status).toBe(401);
+  });
+});

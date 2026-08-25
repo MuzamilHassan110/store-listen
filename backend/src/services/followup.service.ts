@@ -1,6 +1,7 @@
 import { HttpError } from "../lib/http-error.js";
 import { logger } from "../lib/logger.js";
 import { getSupabase } from "../lib/supabase.js";
+import { logActivity } from "./activity.service.js";
 import { generateFollowUpMessage, type FollowUpRow } from "./lead.service.js";
 
 export type FollowUpFilters = {
@@ -113,11 +114,18 @@ export async function createFollowUp(
     customer_id?: string | null;
   },
 ): Promise<FollowUpWithContext> {
+  const { data: conversation } = await getSupabase()
+    .from("conversations")
+    .select("store_id")
+    .eq("id", input.conversation_id)
+    .maybeSingle();
+
   const { data, error } = await getSupabase()
     .from("follow_ups")
     .insert({
       organization_id: organizationId,
       conversation_id: input.conversation_id,
+      store_id: conversation?.store_id ?? null,
       customer_id: input.customer_id ?? null,
       customer_name: input.customer_name ?? null,
       customer_phone: input.customer_phone ?? null,
@@ -134,7 +142,15 @@ export async function createFollowUp(
     logger.error({ error }, "Failed to create follow-up");
     throw new HttpError(500, "Failed to create follow-up.", "FOLLOWUP_CREATE_FAILED");
   }
-  return mapFollowUp(data as Record<string, unknown>);
+  const mapped = mapFollowUp(data as Record<string, unknown>);
+  await logActivity({
+    organizationId,
+    storeId: conversation?.store_id ? String(conversation.store_id) : null,
+    activityType: "follow_up_created",
+    description: `Follow-up created${mapped.customer_name ? ` for ${mapped.customer_name}` : ""}`,
+    metadata: { conversation_id: input.conversation_id, follow_up_id: mapped.id },
+  });
+  return mapped;
 }
 
 export async function updateFollowUp(

@@ -3,6 +3,7 @@ import { env } from "../config/env.js";
 import { HttpError } from "../lib/http-error.js";
 import { logger } from "../lib/logger.js";
 import { getSupabase } from "../lib/supabase.js";
+import { logActivity } from "./activity.service.js";
 import { createNotification } from "./notification.service.js";
 
 export type ExtractedCustomer = {
@@ -330,6 +331,7 @@ export async function detectLeads(conversationId: string, createdBy?: string | n
     .insert({
       organization_id: organizationId,
       conversation_id: conversationId,
+      store_id: conversation.store_id ?? null,
       customer_id: customerId,
       customer_name: extracted.name,
       customer_phone: extracted.phone,
@@ -350,6 +352,15 @@ export async function detectLeads(conversationId: string, createdBy?: string | n
     logger.error({ error: insertError, conversationId }, "Failed to create follow-up from lead");
     return null;
   }
+
+  await logActivity({
+    organizationId,
+    storeId: conversation.store_id ? String(conversation.store_id) : null,
+    userId: createdById,
+    activityType: "lead_detected",
+    description: `Lead detected${extracted.name ? ` for ${extracted.name}` : ""}`,
+    metadata: { conversation_id: conversationId, follow_up_id: followUp.id, lead_score: leadScore },
+  });
 
   if (priority === "high") {
     await createNotification({

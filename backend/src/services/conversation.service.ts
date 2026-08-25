@@ -14,6 +14,7 @@ import {
   getConversationRuleResults,
   type RuleEvaluation,
 } from "./rules.service.js";
+import { logActivity } from "./activity.service.js";
 import { processConversationInsights } from "./lead.service.js";
 import { scoreConversation, type ConversationScore } from "./scoring.service.js";
 import { downloadRecordingBuffer, recordingPathFromConversation } from "./storage.service.js";
@@ -276,7 +277,7 @@ export async function persistAnalysisResult(input: {
 
   const { data: conversationRow } = await getSupabase()
     .from("conversations")
-    .select("organization_id")
+    .select("organization_id, store_id")
     .eq("id", input.conversationId)
     .maybeSingle();
   const organizationId = conversationRow?.organization_id ? String(conversationRow.organization_id) : null;
@@ -307,6 +308,13 @@ export async function persistAnalysisResult(input: {
 
   if (organizationId) {
     try {
+      await logActivity({
+        organizationId,
+        storeId: conversationRow?.store_id ? String(conversationRow.store_id) : null,
+        activityType: hasScores ? "score_updated" : "analysis_completed",
+        description: hasScores ? `Conversation scored ${analysis.overall_score}` : "AI analysis completed",
+        metadata: { conversation_id: input.conversationId, overall_score: analysis.overall_score },
+      });
       await processConversationInsights({
         conversationId: input.conversationId,
         organizationId,

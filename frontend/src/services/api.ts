@@ -29,6 +29,7 @@ import type {
   Transcript,
   TranscriptSegment,
 } from "../types/conversation";
+import type { ActivityLog, Device, SessionProfile, Store, StoreComparisonRow, StoreOverview } from "../types/store";
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL ?? "").replace(/\/$/, "");
 
@@ -246,6 +247,7 @@ export async function fetchConversations(filters: ConversationFilters = {}): Pro
   if (ids) query = query.in("id", ids);
   if (filters.status && filters.status !== "all") query = query.eq("status", filters.status);
   if (filters.salesmanId && filters.salesmanId !== "all") query = query.eq("salesman_id", filters.salesmanId);
+  if (filters.storeId && filters.storeId !== "all") query = query.eq("store_id", filters.storeId);
   if (filters.from) query = query.gte("recorded_at", startOfDay(parseISO(filters.from)).toISOString());
   if (filters.to) query = query.lte("recorded_at", endOfDay(parseISO(filters.to)).toISOString());
   if (filters.sentiment && filters.sentiment !== "all") {
@@ -261,6 +263,7 @@ export async function fetchConversations(filters: ConversationFilters = {}): Pro
     if (ids) query = query.in("id", ids);
     if (filters.status && filters.status !== "all") query = query.eq("status", filters.status);
     if (filters.salesmanId && filters.salesmanId !== "all") query = query.eq("salesman_id", filters.salesmanId);
+    if (filters.storeId && filters.storeId !== "all") query = query.eq("store_id", filters.storeId);
     if (filters.from) query = query.gte("recorded_at", startOfDay(parseISO(filters.from)).toISOString());
     if (filters.to) query = query.lte("recorded_at", endOfDay(parseISO(filters.to)).toISOString());
     if (filters.sentiment && filters.sentiment !== "all") {
@@ -420,7 +423,7 @@ function countBy<T extends string>(items: T[]): Array<{ name: string; value: num
   return [...map.entries()].map(([name, value]) => ({ name, value }));
 }
 
-export async function fetchAnalytics(dateRange?: DateRange): Promise<Analytics> {
+export async function fetchAnalytics(dateRange?: DateRange, storeId?: string | null): Promise<Analytics> {
   const client = await requireClient();
   let query = client
     .from("conversations")
@@ -428,6 +431,7 @@ export async function fetchAnalytics(dateRange?: DateRange): Promise<Analytics> 
     .order("recorded_at", { ascending: false });
   if (dateRange?.from) query = query.gte("recorded_at", startOfDay(parseISO(dateRange.from)).toISOString());
   if (dateRange?.to) query = query.lte("recorded_at", endOfDay(parseISO(dateRange.to)).toISOString());
+  if (storeId && storeId !== "all") query = query.eq("store_id", storeId);
 
   const { data, error } = await query.limit(1000);
   if (error) throw new Error(error.message);
@@ -724,4 +728,57 @@ export async function runRetentionCleanup(days?: number): Promise<{ archived: nu
     method: "POST",
     body: JSON.stringify({ days }),
   });
+}
+
+export async function fetchSessionProfile(): Promise<SessionProfile> {
+  return apiJson<SessionProfile>("/api/me");
+}
+
+export async function fetchStores(): Promise<{ stores: Store[]; role: SessionProfile["role"] }> {
+  return apiJson<{ stores: Store[]; role: SessionProfile["role"] }>("/api/stores");
+}
+
+export async function createStore(input: Partial<Store> & { name: string }): Promise<Store> {
+  return apiJson<Store>("/api/stores", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function updateStore(id: string, input: Partial<Store>): Promise<Store> {
+  return apiJson<Store>(`/api/stores/${id}`, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function deactivateStore(id: string): Promise<Store> {
+  return apiJson<Store>(`/api/stores/${id}`, { method: "DELETE" });
+}
+
+export async function fetchStoreOverview(id: string): Promise<StoreOverview> {
+  return apiJson<StoreOverview>(`/api/stores/${id}/overview`);
+}
+
+export async function compareStores(ids: string[], from?: string, to?: string): Promise<StoreComparisonRow[]> {
+  const params = new URLSearchParams({ ids: ids.join(",") });
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return apiJson<StoreComparisonRow[]>(`/api/stores/compare?${params.toString()}`);
+}
+
+export async function fetchDevices(storeId?: string | null): Promise<Device[]> {
+  const suffix = storeId && storeId !== "all" ? `?storeId=${encodeURIComponent(storeId)}` : "";
+  return apiJson<Device[]>(`/api/devices${suffix}`);
+}
+
+export async function registerDevice(input: Partial<Device> & { device_id: string }): Promise<Device> {
+  return apiJson<Device>("/api/devices/register", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function syncDevice(id: string): Promise<Device> {
+  return apiJson<Device>(`/api/devices/${id}/sync`, { method: "POST" });
+}
+
+export async function restartDevice(id: string): Promise<Device> {
+  return apiJson<Device>(`/api/devices/${id}/restart`, { method: "POST" });
+}
+
+export async function fetchActivity(storeId?: string | null): Promise<ActivityLog[]> {
+  const suffix = storeId && storeId !== "all" ? `?storeId=${encodeURIComponent(storeId)}` : "";
+  return apiJson<ActivityLog[]>(`/api/activity${suffix}`);
 }

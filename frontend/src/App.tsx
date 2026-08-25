@@ -16,6 +16,10 @@ import Reports from "./pages/Reports";
 import Rules from "./pages/Rules";
 import SalesmanDetail from "./pages/SalesmanDetail";
 import Settings from "./pages/Settings";
+import Stores from "./pages/Stores";
+import StoreDetail from "./pages/StoreDetail";
+import StoreComparison from "./pages/StoreComparison";
+import Devices from "./pages/Devices";
 
 function ProtectedLayout() {
   const { session, loading } = useAuth();
@@ -47,6 +51,10 @@ export default function App() {
         <Route path="/reports" element={<Reports />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/salesmen/:id" element={<SalesmanDetail />} />
+        <Route path="/stores" element={<Stores />} />
+        <Route path="/stores/compare" element={<StoreComparison />} />
+        <Route path="/stores/:id" element={<StoreDetail />} />
+        <Route path="/devices" element={<Devices />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/Rules" element={<Rules />} />
         <Route path="/settings" element={<Settings />} />

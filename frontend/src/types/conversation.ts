@@ -137,6 +137,7 @@ export interface ConversationFilters {
   status?: ConversationStatus | "all";
   sentiment?: Sentiment | "all";
   salesmanId?: string | "all";
+  storeId?: string | "all";
   from?: string;
   to?: string;
   page?: number;

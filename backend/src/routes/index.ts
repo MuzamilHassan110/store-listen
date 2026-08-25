@@ -11,11 +11,21 @@ import { retentionRouter } from "./retention.routes.js";
 import { rulesRouter } from "./rules.routes.js";
 import { salesmanRouter } from "./salesman.routes.js";
 import { syncRouter } from "./sync.routes.js";
+import { storeRouter } from "./store.routes.js";
+import { deviceRouter } from "./device.routes.js";
+import { activityRouter } from "./activity.routes.js";
+import { realtimeRouter } from "./realtime.routes.js";
+import { meRouter } from "./me.routes.js";
 
 export const router = Router();
 
 router.use(healthRouter);
+router.use("/me", meRouter);
 router.use("/sync", syncRouter);
+router.use("/stores", storeRouter);
+router.use("/devices", deviceRouter);
+router.use("/activity", activityRouter);
+router.use("/realtime", realtimeRouter);
 router.use("/recordings", recordingRouter);
 router.use("/conversations", conversationRouter);
 router.use("/rules", rulesRouter);

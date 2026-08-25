@@ -1,15 +1,19 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, CalendarClock, FileText, LayoutDashboard, ListChecks, LogOut, Menu, MessageSquare, Settings, Trophy, Users, X } from "lucide-react";
+import { BarChart3, CalendarClock, FileText, LayoutDashboard, ListChecks, LogOut, Menu, MessageSquare, MonitorSmartphone, Settings, Store, Trophy, Users, X } from "lucide-react";
 import { useState } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useAuth } from "../../lib/auth";
+import { useRealtimeDashboard } from "../../hooks/useRealtimeDashboard";
 import { LanguageSelector } from "../LanguageSelector";
 import { Notifications } from "../Notifications";
+import { StoreSelector } from "../StoreSelector";
 import { Button } from "../ui/button";
 
 const LINKS = [
   { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
   { to: "/conversations", labelKey: "nav.conversations", icon: MessageSquare },
+  { to: "/stores", labelKey: "nav.stores", icon: Store },
+  { to: "/devices", labelKey: "nav.devices", icon: MonitorSmartphone },
   { to: "/followups", labelKey: "nav.followups", icon: CalendarClock },
   { to: "/customers", labelKey: "nav.customers", icon: Users },
   { to: "/analytics", labelKey: "nav.analytics", icon: BarChart3 },
@@ -23,12 +27,14 @@ export function AppLayout() {
   const { session, signOut } = useAuth();
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
+  useRealtimeDashboard();
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 lg:grid lg:grid-cols-[240px_1fr]">
       <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3 lg:hidden">
         <p className="font-semibold tracking-wide text-emerald-400">StoreListen</p>
         <div className="flex items-center gap-2">
+          <StoreSelector />
           <LanguageSelector />
           <Notifications />
           <button type="button" onClick={() => setOpen((value) => !value)} aria-label="Toggle navigation">
@@ -72,6 +78,7 @@ export function AppLayout() {
 
       <main className="min-w-0 px-4 py-6 lg:px-8">
         <div className="mb-4 hidden items-center justify-end gap-2 lg:flex">
+          <StoreSelector />
           <LanguageSelector />
           <Notifications />
         </div>

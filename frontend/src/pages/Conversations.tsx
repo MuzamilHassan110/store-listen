@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useStoreFilter } from "../contexts/StoreContext";
 import { exportConversationsCsv, fetchConversations, fetchSalesmen } from "../services/api";
 import { ExportMenu } from "../components/ExportMenu";
 import type { ConversationFilters, ConversationStatus, Sentiment } from "../types/conversation";
@@ -17,6 +18,7 @@ const PAGE_SIZE = 20;
 
 export default function Conversations() {
   const { t } = useLanguage();
+  const { selectedStoreId } = useStoreFilter();
   const [searchInput, setSearchInput] = useState("");
   const [filters, setFilters] = useState<ConversationFilters>({
     page: 1,
@@ -37,8 +39,8 @@ export default function Conversations() {
   }, [searchInput]);
 
   const list = useQuery({
-    queryKey: ["conversations", filters],
-    queryFn: () => fetchConversations(filters),
+    queryKey: ["conversations", { ...filters, storeId: selectedStoreId }],
+    queryFn: () => fetchConversations({ ...filters, storeId: selectedStoreId }),
   });
   const salesmen = useQuery({ queryKey: ["salesmen"], queryFn: fetchSalesmen });
 

@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ActivityFeed } from "../components/ActivityFeed";
 import { useLanguage } from "../contexts/LanguageContext";
-import { fetchAnalytics, fetchConversations, fetchDueFollowUps, fetchFollowUps, fetchNotifications } from "../services/api";
+import { useStoreFilter } from "../contexts/StoreContext";
+import { fetchAnalytics, fetchConversations, fetchDevices, fetchDueFollowUps, fetchFollowUps, fetchNotifications, fetchStores } from "../services/api";
 import { formatDateTime, formatDueLabel, formatDuration } from "../lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
@@ -13,11 +15,18 @@ const COLORS = ["#34d399", "#f87171", "#94a3b8"];
 
 export default function Dashboard() {
   const { t } = useLanguage();
-  const analytics = useQuery({ queryKey: ["analytics"], queryFn: () => fetchAnalytics() });
-  const recent = useQuery({
-    queryKey: ["conversations", { page: 1, pageSize: 5 }],
-    queryFn: () => fetchConversations({ page: 1, pageSize: 5 }),
+  const { selectedStoreId, selectedStore, stores } = useStoreFilter();
+  const storeId = selectedStoreId === "all" ? null : selectedStoreId;
+  const analytics = useQuery({
+    queryKey: ["analytics", selectedStoreId],
+    queryFn: () => fetchAnalytics(undefined, storeId),
   });
+  const recent = useQuery({
+    queryKey: ["conversations", { page: 1, pageSize: 5, storeId: selectedStoreId }],
+    queryFn: () => fetchConversations({ page: 1, pageSize: 5, storeId: selectedStoreId }),
+  });
+  const devices = useQuery({ queryKey: ["devices", selectedStoreId], queryFn: () => fetchDevices(storeId) });
+  const storeStats = useQuery({ queryKey: ["stores"], queryFn: fetchStores });
   const due = useQuery({ queryKey: ["followups", "due-today"], queryFn: fetchDueFollowUps });
   const highLeads = useQuery({
     queryKey: ["followups", { priority: "high", status: "pending" }],
@@ -43,7 +52,9 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
-        <p className="mt-1 text-sm text-slate-400">{t("pages.dashboardHint")}</p>
+        <p className="mt-1 text-sm text-slate-400">
+          {selectedStore ? `${selectedStore.name} · ${t("pages.dashboardHint")}` : t("pages.dashboardHint")}
+        </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
@@ -68,6 +79,26 @@ export default function Dashboard() {
           <CardContent>
             <p className="text-xs uppercase tracking-wide text-slate-400">Average sentiment</p>
             <p className="mt-2 text-3xl font-semibold">{(data.averageSentimentScore * 100).toFixed(0)}%</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-xs uppercase tracking-wide text-slate-400">{t("stores.liveConversations")}</p>
+            <p className="mt-2 text-3xl font-semibold">{data.todayCount}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-xs uppercase tracking-wide text-slate-400">{t("stores.devicesOnline")}</p>
+            <p className="mt-2 text-3xl font-semibold">{(devices.data ?? []).filter((item) => item.is_online).length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-xs uppercase tracking-wide text-slate-400">{t("stores.salesmen")}</p>
+            <p className="mt-2 text-3xl font-semibold">
+              {(storeStats.data?.stores ?? stores).reduce((sum, store) => sum + (store.stats?.active_salesmen ?? 0), 0)}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -149,6 +180,14 @@ export default function Dashboard() {
         </Card>
         <Card>
           <CardHeader>
+            <CardTitle>{t("stores.activity")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ActivityFeed limit={6} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
             <CardTitle>Latest notifications</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -226,6 +265,32 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      {(storeStats.data?.stores.length ?? stores.length) > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("stores.performance")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {[...(storeStats.data?.stores ?? stores)]
+              .sort((a, b) => (b.stats?.average_score ?? 0) - (a.stats?.average_score ?? 0))
+              .map((store, index) => (
+                <Link
+                  key={store.id}
+                  to={`/stores/${store.id}`}
+                  className="flex items-center justify-between rounded-lg bg-slate-950 px-3 py-2 text-sm hover:text-emerald-300"
+                >
+                  <span>
+                    {index === 0 ? "★ " : `${index + 1}. `}
+                    {store.name}
+                  </span>
+                  <span className="text-slate-400">
+                    {store.stats?.total_conversations ?? 0} · {store.stats?.average_score ?? 0}
+                  </span>
+                </Link>
+              ))}
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

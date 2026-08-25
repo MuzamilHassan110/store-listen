@@ -96,6 +96,22 @@ describe("follow-up, customer, and notification routes", () => {
   });
 });
 
+describe("store, device, and realtime routes", () => {
+  it("rejects unauthenticated multi-store requests", async () => {
+    const stores = await request(app).get("/api/stores");
+    const devices = await request(app).get("/api/devices");
+    const activity = await request(app).get("/api/activity");
+    const me = await request(app).get("/api/me");
+    const realtime = await request(app).get("/api/realtime/conversations");
+
+    expect(stores.status).toBe(401);
+    expect(devices.status).toBe(401);
+    expect(activity.status).toBe(401);
+    expect(me.status).toBe(401);
+    expect(realtime.status).toBe(401);
+  });
+});
+
 describe("report and export routes", () => {
   it("rejects unauthenticated report and export requests", async () => {
     const reports = await request(app).get("/api/reports");

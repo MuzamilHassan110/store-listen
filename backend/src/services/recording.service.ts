@@ -4,6 +4,8 @@ import { hashRecordingBuffer } from "../lib/hash.js";
 import { getSupabase } from "../lib/supabase.js";
 import { HttpError } from "../lib/http-error.js";
 import { logger } from "../lib/logger.js";
+import { logActivity } from "./activity.service.js";
+import { findDeviceByHardwareId } from "./device.service.js";
 import { buildRecordingObjectPath, uploadRecordingBuffer } from "./storage.service.js";
 
 export const recordingBodySchema = z.object({
@@ -12,6 +14,15 @@ export const recordingBodySchema = z.object({
   language: z.string().optional(),
   deviceId: z.string().min(1),
   recordingHash: z.string().optional(),
+  storeId: z
+    .string()
+    .optional()
+    .transform((value) => {
+      if (!value) return null;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+        ? value
+        : null;
+    }),
   salesmanId: z
     .string()
     .optional()
@@ -87,7 +98,12 @@ export async function createRecording(input: {
   const conversationId = randomUUID();
   const language = input.body.language?.trim() || null;
   const transcriptText = input.body.transcript.trim();
-  const objectPath = buildRecordingObjectPath(input.organizationId, null, conversationId);
+  let storeId = input.body.storeId ?? null;
+  if (!storeId) {
+    const device = await findDeviceByHardwareId(input.organizationId, input.body.deviceId);
+    if (device?.store_id) storeId = String(device.store_id);
+  }
+  const objectPath = buildRecordingObjectPath(input.organizationId, storeId, conversationId);
 
   const { recordingUrl } = await uploadRecordingBuffer({
     path: objectPath,
@@ -100,7 +116,7 @@ export async function createRecording(input: {
   const row = {
     id: conversationId,
     organization_id: input.organizationId,
-    store_id: null,
+    store_id: storeId,
     salesman_id: input.body.salesmanId,
     device_id: input.body.deviceId,
     duration_seconds: input.body.duration,
@@ -157,6 +173,13 @@ export async function createRecording(input: {
   }
 
   const transcript = transcriptRow;
+  await logActivity({
+    organizationId: input.organizationId,
+    storeId,
+    activityType: "conversation_uploaded",
+    description: "New conversation uploaded",
+    metadata: { conversation_id: conversationId, device_id: input.body.deviceId },
+  });
 
   return { ...conversationRow, transcript };
 }

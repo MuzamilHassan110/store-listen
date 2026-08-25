@@ -6,6 +6,7 @@ type LiveCaptionsProps = {
   finalText: string;
   interimText: string;
   active: boolean;
+  rtl?: boolean;
 };
 
 export default function LiveCaptions({
@@ -14,6 +15,7 @@ export default function LiveCaptions({
   finalText,
   interimText,
   active,
+  rtl = false,
 }: LiveCaptionsProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -35,7 +37,7 @@ export default function LiveCaptions({
   }
 
   return (
-    <section className="captions" aria-live="polite" aria-label="Live captions">
+    <section className={`captions${rtl ? " rtl" : ""}`} aria-live="polite" aria-label="Live captions">
       <p className="captions-label">Live captions</p>
       <div className="captions-scroll" ref={scrollerRef}>
         {body ? <p className="captions-placeholder">{body}</p> : null}

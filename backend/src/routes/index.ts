@@ -10,10 +10,12 @@ import { reportRouter } from "./report.routes.js";
 import { retentionRouter } from "./retention.routes.js";
 import { rulesRouter } from "./rules.routes.js";
 import { salesmanRouter } from "./salesman.routes.js";
+import { syncRouter } from "./sync.routes.js";
 
 export const router = Router();
 
 router.use(healthRouter);
+router.use("/sync", syncRouter);
 router.use("/recordings", recordingRouter);
 router.use("/conversations", conversationRouter);
 router.use("/rules", rulesRouter);

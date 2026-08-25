@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Frown, Meh, Pause, Play, RefreshCw, Smile } from "lucide-react";
-import { detectConversationLead, fetchConversationAnalysis, generateConversationPdf, retryAnalysis, scoreConversation } from "../services/api";
+import { ArrowLeft, Download, Frown, Meh, Pause, Play, RefreshCw, Smile } from "lucide-react";
+import { useLanguage } from "../contexts/LanguageContext";
+import { detectConversationLead, fetchConversationAnalysis, generateConversationPdf, retryAnalysis, scoreConversation, translateConversation } from "../services/api";
 import { formatDateTime, formatDuration } from "../lib/format";
 import { IntentBadge, SentimentBadge, StatusBadge } from "../components/conversation/Badges";
 import { ScoreBar } from "../components/conversation/ScoreBar";
@@ -16,12 +17,16 @@ function formatClock(seconds: number): string {
   return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
 }
 
+type TranscriptView = "original" | "english" | "side-by-side";
+
 export default function ConversationDetail() {
   const { id = "" } = useParams();
+  const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
+  const [transcriptView, setTranscriptView] = useState<TranscriptView>("original");
 
   const detail = useQuery({
     queryKey: ["conversation", id],
@@ -55,6 +60,9 @@ export default function ConversationDetail() {
       void queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
+  const translate = useMutation({
+    mutationFn: (target: string) => translateConversation(id, target),
+  });
 
   const conversation = detail.data;
   const duration = conversation?.duration_seconds ?? 0;
@@ -87,10 +95,24 @@ export default function ConversationDetail() {
   }
 
   if (!conversation) {
-    return <EmptyState title="Conversation not found" hint="It may have been deleted or is outside your organization." />;
+    return <EmptyState title={t("errors.conversationNotFound")} hint={t("errors.conversationNotFoundHint")} />;
   }
 
   const analysis = conversation.analysis;
+  const transcript = conversation.transcript;
+  const originalTranscript = transcript?.original_text || transcript?.text || "";
+  const englishTranscript =
+    translate.data?.transcript.translated || transcript?.translated_text || (transcript?.original_language === "en" ? originalTranscript : transcript?.text) || "";
+  const summaryText =
+    language !== "en" && (translate.data?.analysis?.summary || analysis?.summary_original)
+      ? translate.data?.analysis?.summary || analysis?.summary_original || analysis?.summary
+      : analysis?.summary;
+  const objectionList = translate.data?.analysis?.objections?.length ? translate.data.analysis.objections : analysis?.objections ?? [];
+  const questionList = translate.data?.analysis?.customer_questions?.length
+    ? translate.data.analysis.customer_questions
+    : analysis?.customer_questions ?? [];
+  const keyPointList = translate.data?.analysis?.key_points?.length ? translate.data.analysis.key_points : analysis?.key_points ?? [];
+  const insights = analysis?.language_specific_insights;
   const canRetry =
     conversation.status === "failed" ||
     conversation.status === "recorded" ||
@@ -101,17 +123,23 @@ export default function ConversationDetail() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link to="/conversations" className="text-sm text-emerald-400">
-            ← Conversations
+          <Link to="/conversations" className="inline-flex items-center gap-1 text-sm text-emerald-400">
+            <ArrowLeft className="h-4 w-4 rtl-flip" />
+            {t("conversation.back")}
           </Link>
           <h1 className="mt-2 text-2xl font-semibold">{formatDateTime(conversation.recorded_at)}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <StatusBadge status={conversation.status} />
             <span className="text-sm text-slate-400">{formatDuration(conversation.duration_seconds)}</span>
-            <span className="text-sm uppercase text-slate-400">{conversation.language ?? "—"}</span>
+            <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs uppercase text-slate-200">
+              {conversation.analysis?.language_code ?? conversation.language ?? "—"}
+              {conversation.analysis?.language_confidence != null
+                ? ` · ${Math.round(conversation.analysis.language_confidence * 100)}% ${t("conversation.confidence")}`
+                : ""}
+            </span>
             {conversation.salesman_id ? (
               <Link to={`/salesmen/${conversation.salesman_id}`} className="text-sm text-emerald-400">
-                {conversation.salesman_name ?? "Salesman"}
+                {conversation.salesman_name ?? t("conversation.salesman")}
               </Link>
             ) : null}
           </div>
@@ -119,21 +147,21 @@ export default function ConversationDetail() {
         <div className="flex flex-wrap gap-2">
           {analysis && analysis.overall_score == null ? (
             <Button variant="secondary" onClick={() => score.mutate()} disabled={score.isPending}>
-              {score.isPending ? "Scoring…" : "Compute scores"}
+              {score.isPending ? t("conversation.scoring") : t("conversation.computeScores")}
             </Button>
           ) : null}
           {analysis ? (
             <Button variant="secondary" onClick={() => detectLead.mutate()} disabled={detectLead.isPending}>
-              {detectLead.isPending ? "Detecting…" : "Detect lead"}
+              {detectLead.isPending ? t("conversation.detecting") : t("conversation.detectLead")}
             </Button>
           ) : null}
           <Button variant="secondary" onClick={() => pdf.mutate()} disabled={pdf.isPending}>
-            {pdf.isPending ? "Building PDF…" : "PDF report"}
+            {pdf.isPending ? t("conversation.buildingPdf") : t("conversation.pdf")}
           </Button>
           {canRetry ? (
             <Button onClick={() => retry.mutate()} disabled={retry.isPending}>
               <RefreshCw className="h-4 w-4" />
-              {retry.isPending ? "Retrying…" : "Retry analysis"}
+              {retry.isPending ? t("conversation.retrying") : t("conversation.retryAnalysis")}
             </Button>
           ) : null}
         </div>
@@ -156,7 +184,7 @@ export default function ConversationDetail() {
       {conversation.recording_url ? (
         <Card>
           <CardHeader>
-            <CardTitle>Audio</CardTitle>
+            <CardTitle>{t("conversation.audio")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-3">
             <audio
@@ -167,7 +195,7 @@ export default function ConversationDetail() {
             />
             <Button variant="secondary" onClick={() => void togglePlay()}>
               {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {playing ? "Pause" : "Play"}
+              {playing ? t("common.pause") : t("common.play")}
             </Button>
             <input
               type="range"
@@ -186,7 +214,7 @@ export default function ConversationDetail() {
             </span>
             <a href={conversation.recording_url} download className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-700 px-4 text-sm">
               <Download className="h-4 w-4" />
-              Download
+              {t("common.download")}
             </a>
           </CardContent>
         </Card>
@@ -196,15 +224,18 @@ export default function ConversationDetail() {
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-3">
             <CardHeader>
-              <CardTitle>Summary</CardTitle>
+              <CardTitle>{t("conversation.summary")}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm leading-6 text-slate-300">{analysis.summary || "No summary yet."}</p>
+              <p className="text-sm leading-6 text-slate-300">{summaryText || t("conversation.noSummary")}</p>
+              {analysis.summary_original && analysis.summary && analysis.summary_original !== analysis.summary ? (
+                <p className="mt-3 border-t border-slate-800 pt-3 text-sm leading-6 text-slate-400">{analysis.summary_original}</p>
+              ) : null}
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Sentiment</CardTitle>
+              <CardTitle>{t("conversation.sentiment")}</CardTitle>
             </CardHeader>
             <CardContent className="flex items-center gap-3">
               {analysis.sentiment === "positive" ? (
@@ -219,7 +250,7 @@ export default function ConversationDetail() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Purchase intent</CardTitle>
+              <CardTitle>{t("conversation.purchaseIntent")}</CardTitle>
             </CardHeader>
             <CardContent>
               <IntentBadge intent={analysis.purchase_intent} />
@@ -227,16 +258,16 @@ export default function ConversationDetail() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Language</CardTitle>
+              <CardTitle>{t("conversation.language")}</CardTitle>
             </CardHeader>
-            <CardContent className="uppercase">{analysis.language ?? conversation.language ?? "—"}</CardContent>
+            <CardContent className="uppercase">{analysis.language_code ?? analysis.language ?? conversation.language ?? "—"}</CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Objections</CardTitle>
+              <CardTitle>{t("conversation.objections")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {(analysis.objections.length ? analysis.objections : ["None recorded"]).map((item) => (
+              {(objectionList.length ? objectionList : [t("errors.noneRecorded")]).map((item) => (
                 <p key={item} className="rounded-lg bg-red-950/50 px-3 py-2 text-sm text-red-100">
                   {item}
                 </p>
@@ -245,10 +276,10 @@ export default function ConversationDetail() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Customer questions</CardTitle>
+              <CardTitle>{t("conversation.questions")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {(analysis.customer_questions.length ? analysis.customer_questions : ["None recorded"]).map((item) => (
+              {(questionList.length ? questionList : [t("errors.noneRecorded")]).map((item) => (
                 <p key={item} className="rounded-lg bg-sky-950/50 px-3 py-2 text-sm text-sky-100">
                   {item}
                 </p>
@@ -257,10 +288,10 @@ export default function ConversationDetail() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Key points</CardTitle>
+              <CardTitle>{t("conversation.keyPoints")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {(analysis.key_points.length ? analysis.key_points : ["None recorded"]).map((item) => (
+              {(keyPointList.length ? keyPointList : [t("errors.noneRecorded")]).map((item) => (
                 <p key={item} className="rounded-lg bg-amber-950/40 px-3 py-2 text-sm text-amber-100">
                   {item}
                 </p>
@@ -269,14 +300,14 @@ export default function ConversationDetail() {
           </Card>
         </div>
       ) : (
-        <EmptyState title="No AI analysis yet" hint="Use Retry analysis after the recording is uploaded." />
+        <EmptyState title={t("errors.noAnalysis")} hint={t("errors.noAnalysisHint")} />
       )}
 
       {analysis?.overall_score != null ? (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Salesman scores</CardTitle>
+              <CardTitle>{t("conversation.scores")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-3xl font-semibold">{analysis.overall_score}</p>
@@ -289,15 +320,15 @@ export default function ConversationDetail() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Recommendations</CardTitle>
+              <CardTitle>{t("conversation.recommendations")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <p className="text-xs uppercase text-slate-500">Strengths</p>
+                <p className="text-xs uppercase text-slate-500">{t("conversation.strengths")}</p>
                 <p className="mt-1 text-sm">{(analysis.strengths ?? []).join(" · ") || "—"}</p>
               </div>
               <div>
-                <p className="text-xs uppercase text-slate-500">Weaknesses</p>
+                <p className="text-xs uppercase text-slate-500">{t("conversation.weaknesses")}</p>
                 <p className="mt-1 text-sm">{(analysis.weaknesses ?? []).join(" · ") || "—"}</p>
               </div>
               {(analysis.recommendations ?? []).map((item) => (
@@ -313,7 +344,7 @@ export default function ConversationDetail() {
       {conversation.rule_results?.length ? (
         <Card>
           <CardHeader>
-            <CardTitle>Rule compliance</CardTitle>
+            <CardTitle>{t("conversation.rules")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {conversation.rule_results.map((result) => (
@@ -323,7 +354,7 @@ export default function ConversationDetail() {
                     {result.is_followed ? "✅" : "❌"} {result.description || result.rule_type}
                   </span>
                   <span className={result.is_followed ? "text-emerald-300" : "text-red-300"}>
-                    {result.is_followed ? "Followed" : "Missed"}
+                    {result.is_followed ? t("conversation.followed") : t("conversation.missed")}
                   </span>
                 </div>
                 {result.evidence ? <p className="mt-1 text-xs text-slate-400">“{result.evidence}”</p> : null}
@@ -333,19 +364,78 @@ export default function ConversationDetail() {
         </Card>
       ) : null}
 
+      {insights && (insights.idioms?.length || insights.cultural_notes?.length || insights.local_objections?.length) ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("conversation.insights")}</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-3">
+            <div>
+              <p className="text-xs uppercase text-slate-500">{t("conversation.idioms")}</p>
+              <p className="mt-1 text-sm text-slate-300">{insights.idioms?.join(" · ") || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-slate-500">{t("conversation.culturalNotes")}</p>
+              <p className="mt-1 text-sm text-slate-300">{insights.cultural_notes?.join(" · ") || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-slate-500">{t("conversation.localObjections")}</p>
+              <p className="mt-1 text-sm text-slate-300">{insights.local_objections?.join(" · ") || "—"}</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
-        <CardHeader>
-          <CardTitle>Transcript</CardTitle>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle>{t("conversation.transcript")}</CardTitle>
+          <div className="flex flex-wrap gap-2">
+            {(["original", "english", "side-by-side"] as const).map((view) => (
+              <Button
+                key={view}
+                size="sm"
+                variant={transcriptView === view ? "primary" : "secondary"}
+                onClick={() => setTranscriptView(view)}
+              >
+                {view === "original"
+                  ? t("conversation.original")
+                  : view === "english"
+                    ? t("conversation.translation")
+                    : t("conversation.sideBySide")}
+              </Button>
+            ))}
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={translate.isPending}
+              onClick={() => translate.mutate(language === "en" ? "ur" : language)}
+            >
+              {translate.isPending ? t("common.loading") : `${t("conversation.translateTo")} ${language === "en" ? "Urdu" : language.toUpperCase()}`}
+            </Button>
+            {language !== "en" ? (
+              <Button size="sm" variant="secondary" disabled={translate.isPending} onClick={() => translate.mutate("en")}>
+                {`${t("conversation.translateTo")} EN`}
+              </Button>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {segments.length ? (
+          {translate.isError ? <p className="text-sm text-red-300">{translate.error.message}</p> : null}
+          {transcriptView === "side-by-side" ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <pre className="whitespace-pre-wrap rounded-lg bg-slate-950 p-3 text-sm text-slate-200">{originalTranscript || t("errors.noTranscript")}</pre>
+              <pre className="whitespace-pre-wrap rounded-lg bg-slate-900 p-3 text-sm text-slate-200">{englishTranscript || t("errors.noTranscript")}</pre>
+            </div>
+          ) : transcriptView === "english" ? (
+            <p className="whitespace-pre-wrap text-sm text-slate-300">{englishTranscript || t("errors.noTranscript")}</p>
+          ) : segments.length && !transcript?.original_text ? (
             segments.map((segment) => (
               <div
                 key={segment.id}
                 className={`max-w-[85%] rounded-xl px-4 py-3 text-sm ${
                   segment.speaker === "salesman"
                     ? "bg-sky-950/60 text-sky-50"
-                    : "ml-auto bg-emerald-950/60 text-emerald-50"
+                    : "ms-auto bg-emerald-950/60 text-emerald-50"
                 }`}
               >
                 <p className="text-xs uppercase tracking-wide opacity-70">
@@ -356,7 +446,7 @@ export default function ConversationDetail() {
             ))
           ) : (
             <p className="whitespace-pre-wrap text-sm text-slate-300">
-              {conversation.transcript?.text || "No transcript saved."}
+              {originalTranscript || t("errors.noTranscript")}
             </p>
           )}
         </CardContent>

@@ -13,6 +13,24 @@ body {
   color: #f8fafc;
 }
 
+html.font-urdu body,
+html.font-urdu #root {
+  font-family: "Noto Nastaliq Urdu", Inter, ui-sans-serif, sans-serif;
+}
+
+html.font-arabic body,
+html.font-arabic #root {
+  font-family: "Noto Naskh Arabic", Inter, ui-sans-serif, sans-serif;
+}
+
+.rtl-flip {
+  transform: scaleX(1);
+}
+
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
+}
+
 @media print {
   aside,
   header,

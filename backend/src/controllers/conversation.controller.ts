@@ -63,11 +63,12 @@ export const retryConversationAnalysisHandler: RequestHandler = async (req, res,
       return;
     }
 
-    const liveTranscript = String(bundle.transcript?.text ?? "");
+    const liveTranscript = String(bundle.transcript?.original_text ?? bundle.transcript?.text ?? "");
     const result = await enqueueAndWait(
       {
         conversationId: id,
         liveTranscript,
+        hintLanguage: String(bundle.conversation.language ?? bundle.transcript?.language ?? ""),
         mimeType: "audio/webm",
         loadAudio: () =>
           loadAudioForConversation({

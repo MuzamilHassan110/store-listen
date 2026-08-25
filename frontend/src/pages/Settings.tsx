@@ -7,6 +7,7 @@ import {
   saveRetentionDays,
   saveSchedule,
 } from "../services/api";
+import { useLanguage } from "../contexts/LanguageContext";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -15,6 +16,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { ErrorState } from "../components/States";
 
 export default function Settings() {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [type, setType] = useState("weekly");
@@ -47,8 +49,8 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="mt-1 text-sm text-slate-400">Automated reports and recording retention.</p>
+        <h1 className="text-2xl font-semibold">{t("pages.settings")}</h1>
+        <p className="mt-1 text-sm text-slate-400">{t("pages.settingsHint")}</p>
       </div>
 
       <Card>

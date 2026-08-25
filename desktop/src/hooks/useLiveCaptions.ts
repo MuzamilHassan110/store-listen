@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { shortLanguageCode } from "../lib/language";
+import { shortLanguageCode, speechLocale } from "../lib/language";
 
 type SpeechCtor = new () => SpeechRecognition;
 
@@ -11,12 +11,12 @@ function getSpeechCtor(): SpeechCtor | null {
   return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
 }
 
-export function useLiveCaptions() {
+export function useLiveCaptions(preferredLanguage?: string) {
   const [supported] = useState(() => getSpeechCtor() != null);
   const [finalText, setFinalText] = useState("");
   const [interimText, setInterimText] = useState("");
   const [listening, setListening] = useState(false);
-  const [language, setLanguage] = useState(() => shortLanguageCode(navigator.language));
+  const [language, setLanguage] = useState(() => shortLanguageCode(preferredLanguage ?? navigator.language));
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const shouldRunRef = useRef(false);
@@ -45,8 +45,8 @@ export function useLiveCaptions() {
     if (!Ctor) return;
 
     shouldRunRef.current = true;
-    const lang = navigator.language || "en-US";
-    setLanguage(shortLanguageCode(lang));
+    const lang = speechLocale(preferredLanguage ?? navigator.language);
+    setLanguage(shortLanguageCode(preferredLanguage ?? lang));
 
     if (!recognitionRef.current) {
       const recognition = new Ctor();
@@ -98,7 +98,7 @@ export function useLiveCaptions() {
     } catch {
       // start() throws if already started
     }
-  }, []);
+  }, [preferredLanguage]);
 
   useEffect(() => {
     return () => {

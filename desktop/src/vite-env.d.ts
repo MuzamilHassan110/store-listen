@@ -26,6 +26,10 @@ declare global {
   interface Window {
     storelisten: {
       getBackendUrl: () => Promise<string>;
+      getSyncStatus: () => Promise<
+        | { ok: true; reachable: boolean; serverTime?: string; version?: string }
+        | { ok: false; reachable: false; message: string }
+      >;
       uploadRecording: (payload: {
         bytes: ArrayBuffer;
         filename: string;
@@ -35,6 +39,7 @@ declare global {
         language: string;
         deviceId: string;
         salesmanId: string | null;
+        recordingHash?: string;
         token: string | null;
       }) => Promise<UploadRecordingResult>;
     };

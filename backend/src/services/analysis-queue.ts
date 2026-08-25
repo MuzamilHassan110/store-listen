@@ -14,6 +14,7 @@ export type AnalysisJob = {
   liveTranscript: string;
   buffer?: Buffer;
   mimeType: string;
+  hintLanguage?: string;
   loadAudio?: () => Promise<{ buffer: Buffer; mimeType: string }>;
 };
 
@@ -81,7 +82,12 @@ async function processJob(job: QueuedJob): Promise<AnalysisJobResult> {
       throw new HttpError(400, "No audio available for analysis.", "INVALID_AUDIO");
     }
 
-    const analysis = await analyzeConversation(audio.buffer, audio.mimeType, job.liveTranscript);
+    const analysis = await analyzeConversation(
+      audio.buffer,
+      audio.mimeType,
+      job.liveTranscript,
+      job.hintLanguage,
+    );
     const bundle = await persistAnalysisResult({
       conversationId: job.conversationId,
       liveTranscript: job.liveTranscript,

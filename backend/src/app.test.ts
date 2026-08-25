@@ -12,12 +12,38 @@ describe("GET /api/health", () => {
   });
 });
 
+describe("GET /api/sync/status", () => {
+  it("reports that the backend is reachable", async () => {
+    const res = await request(app).get("/api/sync/status");
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.reachable).toBe(true);
+    expect(res.body.data.version).toBeTruthy();
+  });
+});
+
 describe("POST /api/recordings", () => {
   it("rejects requests without a bearer token", async () => {
     const res = await request(app).post("/api/recordings");
 
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("UNAUTHENTICATED");
+  });
+});
+
+describe("POST /api/recordings/batch", () => {
+  it("rejects requests without a bearer token", async () => {
+    const res = await request(app).post("/api/recordings/batch");
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("GET /api/conversations/:id/translate", () => {
+  it("rejects requests without a bearer token", async () => {
+    const res = await request(app).get("/api/conversations/00000000-0000-0000-0000-000000000000/translate?language=ur");
+    expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("UNAUTHENTICATED");
   });
 });

@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import LiveCaptions from "./components/LiveCaptions";
+import { localDb } from "./db/localDatabase";
 import { useLiveCaptions } from "./hooks/useLiveCaptions";
 import { getOrCreateDeviceId, getSalesmanId } from "./lib/device";
+import { CAPTION_LANGUAGES, isRtlLanguage, shortLanguageCode, type CaptionLanguage } from "./lib/language";
+import {
+  cacheAuthToken,
+  saveRecordingLocally,
+  startAutoSync,
+  subscribeSync,
+  syncPending,
+  type SyncSnapshot,
+} from "./services/sync.service";
 import "./App.css";
 
 type AppState = "idle" | "recording" | "paused" | "uploading" | "done" | "error";
@@ -41,11 +52,28 @@ function stopStream(stream: MediaStream | null): void {
   stream?.getTracks().forEach((track) => track.stop());
 }
 
+async function sha256Hex(buffer: ArrayBuffer): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(hash))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export default function App() {
   const [state, setState] = useState<AppState>("idle");
   const [elapsedMs, setElapsedMs] = useState(0);
   const [message, setMessage] = useState("Ready to record a sales conversation.");
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [captionLanguage, setCaptionLanguage] = useState<CaptionLanguage>(() =>
+    shortLanguageCode(navigator.language),
+  );
+  const [sync, setSync] = useState<SyncSnapshot>({
+    online: navigator.onLine,
+    pendingCount: 0,
+    syncing: false,
+    lastError: null,
+    message: navigator.onLine ? "All synced" : "Offline",
+  });
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -57,7 +85,11 @@ export default function App() {
   const timerRef = useRef<number | null>(null);
   const deviceIdRef = useRef("");
 
-  const captions = useLiveCaptions();
+  const captions = useLiveCaptions(captionLanguage);
+  const pending = useLiveQuery(
+    () => localDb.recordings.where("status").anyOf(["pending", "failed"]).count(),
+    [],
+  ) ?? sync.pendingCount;
 
   function clearTimer(): void {
     if (timerRef.current != null) {
@@ -77,7 +109,12 @@ export default function App() {
 
   useEffect(() => {
     deviceIdRef.current = getOrCreateDeviceId();
+    const token = readAuthToken();
+    void cacheAuthToken(token);
+    startAutoSync(readAuthToken);
+    const unsubscribe = subscribeSync(setSync);
     return () => {
+      unsubscribe();
       clearTimer();
       if (recorderRef.current && recorderRef.current.state !== "inactive") {
         recorderRef.current.stop();
@@ -176,7 +213,7 @@ export default function App() {
       }
       blobRef.current = blob;
       setElapsedMs(durationMs);
-      await uploadBlob(blob, durationMs);
+      await persistAndUpload(blob, durationMs);
     } catch (error) {
       stopStream(streamRef.current);
       setState("error");
@@ -184,64 +221,72 @@ export default function App() {
     }
   }
 
-  async function uploadBlob(blob: Blob, durationMs: number): Promise<void> {
+  async function persistAndUpload(blob: Blob, durationMs: number): Promise<void> {
     const token = readAuthToken();
+    void cacheAuthToken(token);
+    const bytes = await blob.arrayBuffer();
+    const recordingHash = await sha256Hex(bytes);
+    const duration = Math.round(durationMs / 1000);
+    const transcript = captions.getTranscript();
+
+    await saveRecordingLocally({
+      audioBlob: blob,
+      duration,
+      transcript,
+      language: captionLanguage || captions.language,
+      deviceId: deviceIdRef.current || getOrCreateDeviceId(),
+      salesmanId: getSalesmanId(),
+      recordingHash,
+    });
+
+    if (!navigator.onLine) {
+      setState("done");
+      setMessage("Saved locally (offline). It will upload when you are back online.");
+      return;
+    }
+
     if (!token) {
       setState("error");
-      setMessage("No auth token. Sign in, then retry.");
+      setMessage("Saved locally. Sign in, then tap Sync Now.");
       return;
     }
 
     setState("uploading");
     setMessage("Sending the recording to StoreListen…");
-
-    const bytes = await blob.arrayBuffer();
-    const result = await window.storelisten.uploadRecording({
-      bytes,
-      filename: `recording-${Date.now()}.webm`,
-      mimeType: blob.type || mimeTypeRef.current,
-      duration: Math.round(durationMs / 1000),
-      transcript: captions.getTranscript(),
-      language: captions.language,
-      deviceId: deviceIdRef.current || getOrCreateDeviceId(),
-      salesmanId: getSalesmanId(),
-      token,
-    });
-
-    if (result.ok) {
-      setConversationId(result.conversationId ?? null);
+    const result = await syncPending(token);
+    if (result.pendingCount === 0 && !result.lastError) {
       setState("done");
-      setMessage(
-        result.conversationId
-          ? `Recording uploaded (${result.conversationId.slice(0, 8)}).`
-          : "Recording uploaded.",
-      );
+      setMessage("Recording uploaded.");
       return;
     }
 
-    setState("error");
-    if (result.status === 0) {
-      setMessage("The backend is not reachable. Start it, then retry.");
-      return;
-    }
-    if (result.status === 401) {
-      setMessage("Auth token was rejected. Sign in again, then retry.");
-      return;
-    }
-    if (result.status === 413) {
-      setMessage("Recording is too large to upload.");
-      return;
-    }
-    setMessage(result.message);
+    setState("done");
+    setMessage(
+      result.lastError
+        ? `Saved locally (offline). ${result.lastError}`
+        : "Saved locally. Sync is still pending.",
+    );
   }
 
   async function retryUpload(): Promise<void> {
-    if (!blobRef.current) {
-      setState("idle");
-      setMessage("No recording to retry. Start a new one.");
+    setState("uploading");
+    const result = await syncPending(readAuthToken());
+    if (result.pendingCount === 0 && !result.lastError) {
+      setState("done");
+      setMessage("Recording uploaded.");
       return;
     }
-    await uploadBlob(blobRef.current, elapsedMs);
+    setState("error");
+    setMessage(result.lastError ?? "Saved locally. Sync is still pending.");
+  }
+
+  async function handleSyncNow(): Promise<void> {
+    const result = await syncPending(readAuthToken());
+    if (result.pendingCount === 0) {
+      setMessage("All recordings synced.");
+      return;
+    }
+    setMessage(result.lastError ?? `${result.pendingCount} pending uploads.`);
   }
 
   function reset(): void {
@@ -275,10 +320,42 @@ export default function App() {
         : null;
 
   const captionsActive = state === "recording" || state === "paused";
+  const syncTone = !sync.online ? "offline" : pending > 0 || sync.syncing ? "pending" : "synced";
 
   return (
     <main className={`shell state-${state}`}>
-      <p className="brand">StoreListen</p>
+      <header className="topbar">
+        <p className="brand">StoreListen</p>
+        <div className="topbar-actions">
+          <span className={`net-dot ${sync.online ? "online" : "offline"}`} title={sync.online ? "Online" : "Offline"} />
+          <span className={`sync-status tone-${syncTone}`}>
+            {!sync.online ? "Offline" : sync.syncing ? "Syncing" : pending > 0 ? `${pending} pending` : "All synced"}
+          </span>
+          {pending > 0 ? <span className="pending-badge">{pending}</span> : null}
+          <button
+            type="button"
+            className="sync-btn"
+            disabled={sync.syncing || !sync.online}
+            onClick={() => void handleSyncNow()}
+          >
+            {sync.syncing ? "Syncing…" : "Sync Now"}
+          </button>
+        </div>
+      </header>
+      <label className="lang-row">
+        <span>Language</span>
+        <select
+          value={captionLanguage}
+          disabled={captionsActive}
+          onChange={(event) => setCaptionLanguage(shortLanguageCode(event.target.value))}
+        >
+          {CAPTION_LANGUAGES.map((item) => (
+            <option key={item.code} value={item.code}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <h1 className="status">{STATUS_LABEL[state]}</h1>
       <p className="timer" aria-live="polite">
         {formatTime(elapsedMs)}
@@ -290,6 +367,7 @@ export default function App() {
         finalText={captions.finalText}
         interimText={captions.interimText}
         active={captionsActive}
+        rtl={isRtlLanguage(captionLanguage)}
       />
       <p className="message">{message}</p>
       {conversationId ? <p className="conversation-id">{conversationId}</p> : null}

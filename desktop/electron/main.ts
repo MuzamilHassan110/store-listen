@@ -59,6 +59,31 @@ function allowMicrophone(): void {
 
 ipcMain.handle("config:getBackendUrl", () => BACKEND_URL);
 
+ipcMain.handle("sync:status", async () => {
+  try {
+    const response = await fetch(`${BACKEND_URL.replace(/\/$/, "")}/api/sync/status`);
+    const json = (await response.json().catch(() => null)) as {
+      success?: boolean;
+      data?: { reachable?: boolean; serverTime?: string; version?: string };
+    } | null;
+    if (!response.ok) {
+      return { ok: false, reachable: false, message: `Sync check failed (${response.status})` };
+    }
+    return {
+      ok: true,
+      reachable: Boolean(json?.data?.reachable ?? json?.success ?? true),
+      serverTime: json?.data?.serverTime,
+      version: json?.data?.version,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      reachable: false,
+      message: error instanceof Error ? error.message : "Backend unreachable",
+    };
+  }
+});
+
 ipcMain.handle(
   "recordings:upload",
   async (
@@ -72,6 +97,7 @@ ipcMain.handle(
       language: string;
       deviceId: string;
       salesmanId: string | null;
+      recordingHash?: string;
       token: string | null;
     },
   ): Promise<
@@ -85,6 +111,7 @@ ipcMain.handle(
       form.append("language", payload.language);
       form.append("deviceId", payload.deviceId);
       form.append("salesmanId", payload.salesmanId ?? "");
+      if (payload.recordingHash) form.append("recordingHash", payload.recordingHash);
 
       const headers = new Headers();
       if (payload.token) {
@@ -100,7 +127,7 @@ ipcMain.handle(
       const json = (await response.json().catch(() => null)) as {
         success?: boolean;
         message?: string;
-        data?: { id?: string };
+        data?: { id?: string; conversation?: { id?: string } };
       } | null;
 
       if (!response.ok) {
@@ -111,7 +138,11 @@ ipcMain.handle(
         };
       }
 
-      return { ok: true, status: response.status, conversationId: json?.data?.id };
+      return {
+        ok: true,
+        status: response.status,
+        conversationId: json?.data?.conversation?.id ?? json?.data?.id,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Upload failed";
       return { ok: false, status: 0, message };

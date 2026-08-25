@@ -13,6 +13,7 @@ import {
   suggestFollowUpMessage,
   exportFollowUpsCsv,
 } from "../services/api";
+import { useLanguage } from "../contexts/LanguageContext";
 import { ExportMenu } from "../components/ExportMenu";
 import type { FollowUpPriority, FollowUpStatus } from "../types/conversation";
 import { formatDueLabel } from "../lib/format";
@@ -25,6 +26,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { EmptyState, ErrorState } from "../components/States";
 
 export default function Followups() {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<FollowUpStatus | "">("");
   const [priority, setPriority] = useState<FollowUpPriority | "">("");
@@ -76,8 +78,8 @@ export default function Followups() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Follow-ups</h1>
-          <p className="mt-1 text-sm text-slate-400">Leads detected from conversations, plus anything you add by hand.</p>
+          <h1 className="text-2xl font-semibold">{t("pages.followups")}</h1>
+          <p className="mt-1 text-sm text-slate-400">{t("pages.followupsHint")}</p>
         </div>
         <div className="flex gap-2">
           <ExportMenu onExport={exportFollowUpsCsv} />

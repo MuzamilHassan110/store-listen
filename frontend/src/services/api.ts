@@ -25,6 +25,7 @@ import type {
   ScheduledReport,
   StoredReport,
   Sentiment,
+  LanguageInsights,
   Transcript,
   TranscriptSegment,
 } from "../types/conversation";
@@ -79,6 +80,10 @@ function mapAnalysis(row: Record<string, unknown> | null | undefined): Conversat
     key_points: asStringArray(row.key_points),
     customer_questions: asStringArray(row.customer_questions),
     language: row.language ? String(row.language) : null,
+    language_code: row.language_code ? String(row.language_code) : row.language ? String(row.language) : null,
+    language_confidence: typeof row.language_confidence === "number" ? row.language_confidence : null,
+    summary_original: row.summary_original ? String(row.summary_original) : null,
+    language_specific_insights: (row.language_specific_insights as LanguageInsights | null) ?? null,
     duration_spoken_seconds: typeof row.duration_spoken_seconds === "number" ? row.duration_spoken_seconds : null,
     ai_model: row.ai_model ? String(row.ai_model) : null,
     ai_processed_at: row.ai_processed_at ? String(row.ai_processed_at) : null,
@@ -111,6 +116,10 @@ function mapTranscript(row: Record<string, unknown> | null | undefined): Transcr
     conversation_id: String(row.conversation_id),
     text: row.text ? String(row.text) : null,
     language: row.language ? String(row.language) : null,
+    original_text: row.original_text ? String(row.original_text) : null,
+    translated_text: row.translated_text ? String(row.translated_text) : null,
+    original_language: row.original_language ? String(row.original_language) : null,
+    translation_language: row.translation_language ? String(row.translation_language) : null,
     is_auto_generated: Boolean(row.is_auto_generated),
     created_at: row.created_at ? String(row.created_at) : undefined,
   };
@@ -367,6 +376,29 @@ export async function retryAnalysis(id: string): Promise<void> {
     const json = (await response.json().catch(() => null)) as { message?: string } | null;
     throw new Error(json?.message ?? "Retry analysis failed.");
   }
+}
+
+export type ConversationTranslation = {
+  language: string;
+  cached: boolean;
+  transcript: {
+    id: string | null;
+    original: string;
+    translated: string;
+    original_language: string | null;
+  };
+  analysis: {
+    id: string | null;
+    summary: string;
+    objections: string[];
+    key_points: string[];
+    customer_questions: string[];
+    language_specific_insights: LanguageInsights | null;
+  } | null;
+};
+
+export async function translateConversation(id: string, language: string): Promise<ConversationTranslation> {
+  return apiJson<ConversationTranslation>(`/api/conversations/${id}/translate?language=${encodeURIComponent(language)}`);
 }
 
 export async function fetchSalesmen(): Promise<Array<{ id: string; name: string }>> {

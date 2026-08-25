@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { hashRecordingBuffer } from "../lib/hash.js";
 import { getSupabase } from "../lib/supabase.js";
 import { HttpError } from "../lib/http-error.js";
 import { logger } from "../lib/logger.js";
@@ -10,6 +11,7 @@ export const recordingBodySchema = z.object({
   transcript: z.string().optional().default(""),
   language: z.string().optional(),
   deviceId: z.string().min(1),
+  recordingHash: z.string().optional(),
   salesmanId: z
     .string()
     .optional()
@@ -36,6 +38,8 @@ export type ConversationWithTranscript = {
   status: string | null;
   recorded_at: string | null;
   created_at: string | null;
+  recording_hash?: string | null;
+  duplicate?: boolean;
   transcript: {
     id: string;
     conversation_id: string;
@@ -46,11 +50,40 @@ export type ConversationWithTranscript = {
   } | null;
 };
 
+export async function findConversationByHash(
+  organizationId: string,
+  recordingHash: string,
+): Promise<ConversationWithTranscript | null> {
+  if (!recordingHash) return null;
+  const supabase = getSupabase();
+  const { data: conversation, error } = await supabase
+    .from("conversations")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("recording_hash", recordingHash)
+    .maybeSingle();
+  if (error || !conversation) return null;
+
+  const { data: transcript } = await supabase
+    .from("transcripts")
+    .select("*")
+    .eq("conversation_id", conversation.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return { ...conversation, transcript: transcript ?? null, duplicate: true };
+}
+
 export async function createRecording(input: {
   organizationId: string;
   body: RecordingBody;
   file: Express.Multer.File;
 }): Promise<ConversationWithTranscript> {
+  const recordingHash = hashRecordingBuffer(input.file.buffer);
+  const existing = await findConversationByHash(input.organizationId, recordingHash);
+  if (existing) return existing;
+
   const conversationId = randomUUID();
   const language = input.body.language?.trim() || null;
   const transcriptText = input.body.transcript.trim();
@@ -64,45 +97,42 @@ export async function createRecording(input: {
 
   const recordedAt = new Date().toISOString();
   const supabase = getSupabase();
+  const row = {
+    id: conversationId,
+    organization_id: input.organizationId,
+    store_id: null,
+    salesman_id: input.body.salesmanId,
+    device_id: input.body.deviceId,
+    duration_seconds: input.body.duration,
+    language,
+    recording_url: recordingUrl,
+    recording_path: objectPath,
+    status: "queued",
+    recorded_at: recordedAt,
+  };
 
-  const { data: conversation, error: conversationError } = await supabase
-    .from("conversations")
-    .insert({
-      id: conversationId,
-      organization_id: input.organizationId,
-      store_id: null,
-      salesman_id: input.body.salesmanId,
-      device_id: input.body.deviceId,
-      duration_seconds: input.body.duration,
-      language,
-      recording_url: recordingUrl,
-      recording_path: objectPath,
-      status: "queued",
-      recorded_at: recordedAt,
-    })
-    .select()
-    .single();
+  let conversationError: unknown = null;
+  const withHash = await supabase.from("conversations").insert({ ...row, recording_hash: recordingHash }).select().single();
+  let conversationRow = withHash.data;
+  conversationError = withHash.error;
+  if (!conversationRow) {
+    logger.warn({ error: withHash.error }, "Saving conversation without recording_hash; run migration 007");
+    const withoutHash = await supabase.from("conversations").insert(row).select().single();
+    conversationRow = withoutHash.data;
+    conversationError = withoutHash.error;
+  }
 
-  let conversationRow = conversation;
   if ((conversationError || !conversationRow) && input.body.salesmanId) {
     const retry = await supabase
       .from("conversations")
-      .insert({
-        id: conversationId,
-        organization_id: input.organizationId,
-        store_id: null,
-        salesman_id: null,
-        device_id: input.body.deviceId,
-        duration_seconds: input.body.duration,
-        language,
-        recording_url: recordingUrl,
-        recording_path: objectPath,
-        status: "queued",
-        recorded_at: recordedAt,
-      })
+      .insert({ ...row, salesman_id: null, recording_hash: recordingHash })
       .select()
       .single();
     conversationRow = retry.data;
+    if (!conversationRow) {
+      const retryBase = await supabase.from("conversations").insert({ ...row, salesman_id: null }).select().single();
+      conversationRow = retryBase.data;
+    }
   }
 
   if (!conversationRow) {

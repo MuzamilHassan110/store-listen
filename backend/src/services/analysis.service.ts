@@ -3,17 +3,32 @@ import { z } from "zod";
 import { env } from "../config/env.js";
 import { HttpError } from "../lib/http-error.js";
 import { logger } from "../lib/logger.js";
+import { detectLanguageFromText, languageGuidance, normalizeLanguage } from "./language.js";
+
+const insightsSchema = z
+  .object({
+    idioms: z.array(z.string()).default([]),
+    cultural_notes: z.array(z.string()).default([]),
+    local_objections: z.array(z.string()).default([]),
+  })
+  .default({ idioms: [], cultural_notes: [], local_objections: [] });
 
 export const analysisSchema = z.object({
   transcript: z.string().default(""),
+  original_transcript: z.string().default(""),
+  translated_transcript: z.string().default(""),
   summary: z.string().default(""),
+  summary_original: z.string().default(""),
   sentiment: z.enum(["positive", "negative", "neutral"]).default("neutral"),
   purchase_intent: z.enum(["high", "medium", "low"]).default("medium"),
   objections: z.array(z.string()).default([]),
   key_points: z.array(z.string()).default([]),
   customer_questions: z.array(z.string()).default([]),
   language: z.string().default("en"),
+  language_code: z.string().optional(),
+  language_confidence: z.coerce.number().min(0).max(1).default(0.5),
   duration_spoken_seconds: z.coerce.number().int().nonnegative().default(0),
+  language_specific_insights: insightsSchema,
 });
 
 export type ConversationAnalysisResult = z.infer<typeof analysisSchema>;
@@ -26,24 +41,38 @@ export type SpeakerSegment = {
 };
 
 const ANALYSIS_PROMPT = `You are analyzing a retail store sales conversation between a salesman and a customer.
+Detect the spoken language from the AUDIO (not only from captions). Supported codes: en, ur, pa, ar, hi.
 Return ONLY valid JSON (no markdown) matching this shape:
 {
-  "transcript": "full transcript with speaker labels like 'Salesman:' and 'Customer:'",
-  "summary": "2-3 sentence summary",
+  "original_transcript": "full transcript in the spoken language, with speaker labels like 'Salesman:' and 'Customer:'",
+  "translated_transcript": "the same transcript translated to English, keeping speaker labels",
+  "transcript": "English transcript (same as translated_transcript when not English)",
+  "summary": "2-3 sentence English summary for the dashboard",
+  "summary_original": "2-3 sentence summary in the spoken language for the customer",
   "sentiment": "positive" | "negative" | "neutral",
   "purchase_intent": "high" | "medium" | "low",
-  "objections": ["customer objections"],
-  "key_points": ["important moments"],
-  "customer_questions": ["questions asked by the customer"],
-  "language": "en|ur|pa|ar or other ISO-like code",
-  "duration_spoken_seconds": 0
+  "objections": ["customer objections in the spoken language"],
+  "key_points": ["important moments in English"],
+  "customer_questions": ["questions asked by the customer, original wording"],
+  "language": "en|ur|pa|ar|hi",
+  "language_code": "en|ur|pa|ar|hi",
+  "language_confidence": 0.0,
+  "duration_spoken_seconds": 0,
+  "language_specific_insights": {
+    "idioms": ["local idioms or expressions and a short English gloss"],
+    "cultural_notes": ["tone, honorifics, or cultural context"],
+    "local_objections": ["price/discount phrases unique to this language"]
+  }
 }
 
 Rules:
 - Label speakers as Salesman or Customer.
 - Prefer the audio as the source of truth.
+- Transcribe in the original spoken language first, then provide English.
+- Analyze sentiment and intent from the original language, including idioms.
 - Use the live captions only as a hint if provided.
-- If audio is silent or unusable, still return JSON with an empty transcript and neutral/low defaults.`;
+- language_confidence is 0 to 1.
+- If audio is silent or unusable, still return JSON with empty transcripts and neutral/low defaults.`;
 
 function getModel() {
   if (!env.GEMINI_API_KEY) {
@@ -91,6 +120,57 @@ export function enhanceTranscript(aiTranscript: string, liveTranscript: string):
   if (ai.length >= 8) return ai;
   if (live.length > 0) return live;
   return ai || live;
+}
+
+export function normalizeAnalysisResult(parsed: ConversationAnalysisResult): ConversationAnalysisResult {
+  const language = normalizeLanguage(parsed.language_code || parsed.language);
+  const original = parsed.original_transcript.trim() || parsed.transcript.trim();
+  const translated =
+    parsed.translated_transcript.trim() || (language === "en" ? parsed.transcript.trim() || original : "");
+  const fallback = detectLanguageFromText(original || parsed.transcript);
+  const confidence =
+    parsed.language_confidence > 0
+      ? parsed.language_confidence
+      : original
+        ? fallback.confidence
+        : 0.4;
+
+  return {
+    ...parsed,
+    language,
+    language_code: language,
+    language_confidence: confidence,
+    original_transcript: original,
+    translated_transcript: translated,
+    transcript: translated || original,
+    summary: parsed.summary,
+    summary_original: parsed.summary_original.trim() || (language === "en" ? parsed.summary : ""),
+  };
+}
+
+export function resolveTranscripts(
+  analysis: ConversationAnalysisResult,
+  liveTranscript: string,
+): {
+  language: string;
+  original: string;
+  translated: string;
+  scoring: string;
+} {
+  const language = normalizeLanguage(analysis.language_code || analysis.language);
+  const original = (analysis.original_transcript || (language !== "en" ? analysis.transcript : "")).trim();
+  const translated = (analysis.translated_transcript || (language === "en" ? analysis.transcript : "")).trim();
+  const english = enhanceTranscript(
+    translated || (language === "en" ? analysis.transcript : ""),
+    language === "en" ? liveTranscript : "",
+  );
+  const originalFinal = original || (language !== "en" ? liveTranscript.trim() : "") || english;
+  return {
+    language,
+    original: originalFinal,
+    translated: translated || (language === "en" ? english || originalFinal : ""),
+    scoring: english || originalFinal || liveTranscript.trim(),
+  };
 }
 
 export function detectSpeakerSegments(transcript: string, durationSeconds = 0): SpeakerSegment[] {
@@ -141,6 +221,7 @@ export async function analyzeConversation(
   audioBuffer: Buffer,
   mimeType: string,
   liveTranscript?: string,
+  hintLanguage?: string,
 ): Promise<ConversationAnalysisResult> {
   if (!audioBuffer.length) {
     throw new HttpError(400, "Audio buffer is empty.", "INVALID_AUDIO");
@@ -154,11 +235,14 @@ export async function analyzeConversation(
   const hint = liveTranscript?.trim()
     ? `\n\nLive captions hint:\n${liveTranscript.trim().slice(0, 8000)}`
     : "";
+  const languageHint = hintLanguage
+    ? `\n\nDevice language hint: ${normalizeLanguage(hintLanguage)}. Still detect from audio.`
+    : "";
 
   try {
     const result = await withTimeout(
       model.generateContent([
-        { text: `${ANALYSIS_PROMPT}${hint}` },
+        { text: `${ANALYSIS_PROMPT}\n\n${languageGuidance(hintLanguage)}${hint}${languageHint}` },
         {
           inlineData: {
             mimeType: mimeType || "audio/webm",
@@ -170,7 +254,7 @@ export async function analyzeConversation(
     );
 
     const text = result.response.text();
-    const parsed = analysisSchema.parse(extractJson(text));
+    const parsed = normalizeAnalysisResult(analysisSchema.parse(extractJson(text)));
     return parsed;
   } catch (err) {
     if (err instanceof HttpError) throw err;

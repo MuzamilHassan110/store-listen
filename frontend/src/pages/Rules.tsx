@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLanguage } from "../contexts/LanguageContext";
 import { createRule, deleteRule, fetchRules, testRuleAgainstText, updateRule } from "../services/api";
 import type { ConversationRule } from "../types/conversation";
 import { Button } from "../components/ui/button";
@@ -19,6 +20,7 @@ const emptyForm = {
 };
 
 export default function Rules() {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -80,8 +82,8 @@ export default function Rules() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Conversation rules</h1>
-        <p className="mt-1 text-sm text-slate-400">Keywords the salesman should hit — or avoid, for discount rules.</p>
+        <h1 className="text-2xl font-semibold">{t("pages.rules")}</h1>
+        <p className="mt-1 text-sm text-slate-400">{t("pages.rulesHint")}</p>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">

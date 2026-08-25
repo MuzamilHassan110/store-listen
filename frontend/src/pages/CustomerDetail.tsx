@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLanguage } from "../contexts/LanguageContext";
 import { fetchCustomerById, updateCustomerNotes } from "../services/api";
 import { formatDateTime, formatDuration } from "../lib/format";
 import { FollowUpStatusBadge, PriorityBadge } from "../components/conversation/Badges";
@@ -11,6 +12,7 @@ import { EmptyState, ErrorState } from "../components/States";
 import { ScoreBar } from "../components/conversation/ScoreBar";
 
 export default function CustomerDetail() {
+  const { t } = useLanguage();
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export default function CustomerDetail() {
         <Link to="/customers" className="text-sm text-emerald-400">
           ← Customers
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold">{customer.name || "Unnamed customer"}</h1>
+        <h1 className="mt-2 text-2xl font-semibold">{customer.name || t("pages.unnamedCustomer")}</h1>
         <p className="mt-1 text-sm text-slate-400">
           {customer.phone || "No phone"} · {customer.preferred_language || "language unknown"}
         </p>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useLanguage } from "../contexts/LanguageContext";
 import { exportSalesmenCsv, fetchLeaderboard } from "../services/api";
 import { ExportMenu } from "../components/ExportMenu";
 import { scoreTone } from "../components/conversation/ScoreBar";
@@ -13,6 +14,7 @@ import { cn } from "../lib/cn";
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 export default function Leaderboard() {
+  const { t } = useLanguage();
   const [period, setPeriod] = useState<"week" | "month" | "all">("all");
   const board = useQuery({
     queryKey: ["leaderboard", period],
@@ -23,8 +25,8 @@ export default function Leaderboard() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Leaderboard</h1>
-          <p className="mt-1 text-sm text-slate-400">Salesmen ranked by average conversation score.</p>
+          <h1 className="text-2xl font-semibold">{t("pages.leaderboard")}</h1>
+          <p className="mt-1 text-sm text-slate-400">{t("pages.leaderboardHint")}</p>
         </div>
         <div className="flex gap-2">
           <ExportMenu onExport={exportSalesmenCsv} />

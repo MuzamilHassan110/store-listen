@@ -14,6 +14,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useLanguage } from "../contexts/LanguageContext";
 import { fetchAnalytics } from "../services/api";
 import { formatDuration, formatHours } from "../lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -35,6 +36,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export default function Analytics() {
+  const { t } = useLanguage();
   const analytics = useQuery({ queryKey: ["analytics"], queryFn: () => fetchAnalytics() });
 
   if (analytics.isLoading) {
@@ -56,8 +58,8 @@ export default function Analytics() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Analytics</h1>
-        <p className="mt-1 text-sm text-slate-400">Trends across recordings, sentiment, and purchase intent.</p>
+        <h1 className="text-2xl font-semibold">{t("pages.analytics")}</h1>
+        <p className="mt-1 text-sm text-slate-400">{t("pages.analyticsHint")}</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Total conversations" value={String(data.totalConversations)} />

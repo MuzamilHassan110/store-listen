@@ -8,6 +8,7 @@ import {
   generateSalesmanPdf,
   generateStorePdf,
 } from "../services/api";
+import { useLanguage } from "../contexts/LanguageContext";
 import { formatDateTime } from "../lib/format";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -25,6 +26,7 @@ function presetRange(kind: "today" | "week" | "month" | "custom", customFrom: st
 }
 
 export default function Reports() {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [kind, setKind] = useState<"conversation" | "salesman" | "store">("store");
   const [preset, setPreset] = useState<"today" | "week" | "month" | "custom">("week");
@@ -60,8 +62,8 @@ export default function Reports() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Reports</h1>
-        <p className="mt-1 text-sm text-slate-400">Generate manager PDFs and download previously created files.</p>
+        <h1 className="text-2xl font-semibold">{t("pages.reports")}</h1>
+        <p className="mt-1 text-sm text-slate-400">{t("pages.reportsHint")}</p>
       </div>
 
       <Card>

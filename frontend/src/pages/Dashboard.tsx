@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useLanguage } from "../contexts/LanguageContext";
 import { fetchAnalytics, fetchConversations, fetchDueFollowUps, fetchFollowUps, fetchNotifications } from "../services/api";
 import { formatDateTime, formatDueLabel, formatDuration } from "../lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -11,6 +12,7 @@ import { IntentBadge, PriorityBadge, StatusBadge } from "../components/conversat
 const COLORS = ["#34d399", "#f87171", "#94a3b8"];
 
 export default function Dashboard() {
+  const { t } = useLanguage();
   const analytics = useQuery({ queryKey: ["analytics"], queryFn: () => fetchAnalytics() });
   const recent = useQuery({
     queryKey: ["conversations", { page: 1, pageSize: 5 }],
@@ -35,13 +37,13 @@ export default function Dashboard() {
   }
   if (analytics.isError) return <ErrorState message={analytics.error.message} onRetry={() => void analytics.refetch()} />;
   const data = analytics.data;
-  if (!data) return <EmptyState title="No dashboard data" hint="Sign in and record a conversation to populate this page." />;
+  if (!data) return <EmptyState title={t("errors.emptyDashboard")} hint={t("errors.emptyDashboardHint")} />;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-400">Today’s recordings and AI analysis at a glance.</p>
+        <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
+        <p className="mt-1 text-sm text-slate-400">{t("pages.dashboardHint")}</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useLanguage } from "../contexts/LanguageContext";
 import { exportCustomersCsv, fetchCustomers } from "../services/api";
 import { ExportMenu } from "../components/ExportMenu";
 import { formatDateTime } from "../lib/format";
@@ -10,6 +11,7 @@ import { EmptyState, ErrorState } from "../components/States";
 import { ScoreBar } from "../components/conversation/ScoreBar";
 
 export default function Customers() {
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const list = useQuery({
     queryKey: ["customers", search],
@@ -20,8 +22,8 @@ export default function Customers() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Customers</h1>
-          <p className="mt-1 text-sm text-slate-400">People captured from store conversations and follow-ups.</p>
+          <h1 className="text-2xl font-semibold">{t("pages.customers")}</h1>
+          <p className="mt-1 text-sm text-slate-400">{t("pages.customersHint")}</p>
         </div>
         <ExportMenu onExport={exportCustomersCsv} />
       </div>

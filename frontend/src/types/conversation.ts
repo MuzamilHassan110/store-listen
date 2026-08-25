@@ -7,8 +7,18 @@ export interface Transcript {
   conversation_id: string;
   text: string | null;
   language: string | null;
+  original_text?: string | null;
+  translated_text?: string | null;
+  original_language?: string | null;
+  translation_language?: string | null;
   is_auto_generated?: boolean;
   created_at?: string;
+}
+
+export interface LanguageInsights {
+  idioms?: string[];
+  cultural_notes?: string[];
+  local_objections?: string[];
 }
 
 export interface ScoreBreakdown {
@@ -49,6 +59,10 @@ export interface ConversationAnalysis extends Partial<ScoreBreakdown> {
   key_points: string[];
   customer_questions: string[];
   language?: string | null;
+  language_code?: string | null;
+  language_confidence?: number | null;
+  summary_original?: string | null;
+  language_specific_insights?: LanguageInsights | null;
   duration_spoken_seconds?: number | null;
   ai_model?: string | null;
   ai_processed_at?: string | null;

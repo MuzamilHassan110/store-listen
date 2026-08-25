@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useLanguage } from "../contexts/LanguageContext";
 import { exportConversationsCsv, fetchConversations, fetchSalesmen } from "../services/api";
 import { ExportMenu } from "../components/ExportMenu";
 import type { ConversationFilters, ConversationStatus, Sentiment } from "../types/conversation";
@@ -15,6 +16,7 @@ import { EmptyState, ErrorState } from "../components/States";
 const PAGE_SIZE = 20;
 
 export default function Conversations() {
+  const { t } = useLanguage();
   const [searchInput, setSearchInput] = useState("");
   const [filters, setFilters] = useState<ConversationFilters>({
     page: 1,
@@ -46,8 +48,8 @@ export default function Conversations() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Conversations</h1>
-          <p className="mt-1 text-sm text-slate-400">Search, filter, and open a recording for AI analysis.</p>
+          <h1 className="text-2xl font-semibold">{t("pages.conversations")}</h1>
+          <p className="mt-1 text-sm text-slate-400">{t("pages.conversationsHint")}</p>
         </div>
         <ExportMenu onExport={exportConversationsCsv} />
       </div>

@@ -1,24 +1,27 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { BarChart3, CalendarClock, FileText, LayoutDashboard, ListChecks, LogOut, Menu, MessageSquare, Settings, Trophy, Users, X } from "lucide-react";
 import { useState } from "react";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { useAuth } from "../../lib/auth";
+import { LanguageSelector } from "../LanguageSelector";
 import { Notifications } from "../Notifications";
 import { Button } from "../ui/button";
 
 const LINKS = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/conversations", label: "Conversations", icon: MessageSquare },
-  { to: "/followups", label: "Follow-ups", icon: CalendarClock },
-  { to: "/customers", label: "Customers", icon: Users },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  { to: "/rules", label: "Rules", icon: ListChecks },
-  { to: "/reports", label: "Reports", icon: FileText },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { to: "/conversations", labelKey: "nav.conversations", icon: MessageSquare },
+  { to: "/followups", labelKey: "nav.followups", icon: CalendarClock },
+  { to: "/customers", labelKey: "nav.customers", icon: Users },
+  { to: "/analytics", labelKey: "nav.analytics", icon: BarChart3 },
+  { to: "/leaderboard", labelKey: "nav.leaderboard", icon: Trophy },
+  { to: "/rules", labelKey: "nav.rules", icon: ListChecks },
+  { to: "/reports", labelKey: "nav.reports", icon: FileText },
+  { to: "/settings", labelKey: "nav.settings", icon: Settings },
 ];
 
 export function AppLayout() {
   const { session, signOut } = useAuth();
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
 
   return (
@@ -26,6 +29,7 @@ export function AppLayout() {
       <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3 lg:hidden">
         <p className="font-semibold tracking-wide text-emerald-400">StoreListen</p>
         <div className="flex items-center gap-2">
+          <LanguageSelector />
           <Notifications />
           <button type="button" onClick={() => setOpen((value) => !value)} aria-label="Toggle navigation">
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -51,23 +55,24 @@ export function AppLayout() {
               }
             >
               <link.icon className="h-4 w-4" />
-              {link.label}
+              {t(link.labelKey)}
             </NavLink>
           ))}
         </nav>
         <div className="mt-8 border-t border-slate-800 pt-4 text-xs text-slate-500">
-          <p className="truncate">{session?.user.email ?? "Not signed in"}</p>
+          <p className="truncate">{session?.user.email ?? t("nav.notSignedIn")}</p>
           {session ? (
             <Button variant="ghost" size="sm" className="mt-2 px-0" onClick={() => void signOut()}>
               <LogOut className="h-4 w-4" />
-              Sign out
+              {t("nav.signOut")}
             </Button>
           ) : null}
         </div>
       </aside>
 
       <main className="min-w-0 px-4 py-6 lg:px-8">
-        <div className="mb-4 hidden justify-end lg:flex">
+        <div className="mb-4 hidden items-center justify-end gap-2 lg:flex">
+          <LanguageSelector />
           <Notifications />
         </div>
         <Outlet />

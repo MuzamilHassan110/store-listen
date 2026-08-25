@@ -4,9 +4,10 @@ import { logger } from "../lib/logger.js";
 import { getSupabase } from "../lib/supabase.js";
 import {
   detectSpeakerSegments,
-  enhanceTranscript,
+  resolveTranscripts,
   type ConversationAnalysisResult,
 } from "./analysis.service.js";
+import { normalizeLanguage } from "./language.js";
 import {
   compliancePercent,
   evaluateAndSaveRules,
@@ -27,6 +28,10 @@ export type ConversationAnalysisRow = {
   key_points: string[];
   customer_questions: string[];
   language: string | null;
+  language_code?: string | null;
+  language_confidence?: number | null;
+  summary_original?: string | null;
+  language_specific_insights?: Record<string, unknown> | null;
   duration_spoken_seconds: number | null;
   ai_model: string | null;
   ai_processed_at: string | null;
@@ -117,7 +122,17 @@ export async function getConversationBundle(
   };
 }
 
-async function upsertTranscript(conversationId: string, text: string, language: string | null) {
+async function upsertTranscript(
+  conversationId: string,
+  payload: {
+    text: string;
+    language: string | null;
+    original_text?: string | null;
+    translated_text?: string | null;
+    original_language?: string | null;
+    translation_language?: string | null;
+  },
+) {
   const supabase = getSupabase();
   const { data: existing } = await supabase
     .from("transcripts")
@@ -127,20 +142,36 @@ async function upsertTranscript(conversationId: string, text: string, language: 
     .limit(1)
     .maybeSingle();
 
+  const withLanguage = {
+    text: payload.text,
+    language: payload.language,
+    is_auto_generated: true,
+    original_text: payload.original_text ?? null,
+    translated_text: payload.translated_text ?? null,
+    original_language: payload.original_language ?? payload.language,
+    translation_language: payload.translation_language ?? "en",
+  };
+  const base = { text: payload.text, language: payload.language, is_auto_generated: true };
+
   if (existing?.id) {
-    const { data, error } = await supabase
-      .from("transcripts")
-      .update({ text, language, is_auto_generated: true })
-      .eq("id", existing.id)
-      .select()
-      .single();
+    const updated = await supabase.from("transcripts").update(withLanguage).eq("id", existing.id).select().single();
+    if (!updated.error && updated.data) return updated.data;
+    logger.warn({ error: updated.error, conversationId }, "Saving transcript without translation columns; run migration 007");
+    const { data, error } = await supabase.from("transcripts").update(base).eq("id", existing.id).select().single();
     if (error || !data) throw new HttpError(500, "Failed to update transcript.", "TRANSCRIPT_UPDATE_FAILED");
     return data;
   }
 
+  const inserted = await supabase
+    .from("transcripts")
+    .insert({ conversation_id: conversationId, ...withLanguage })
+    .select()
+    .single();
+  if (!inserted.error && inserted.data) return inserted.data;
+  logger.warn({ error: inserted.error, conversationId }, "Saving transcript without translation columns; run migration 007");
   const { data, error } = await supabase
     .from("transcripts")
-    .insert({ conversation_id: conversationId, text, language, is_auto_generated: true })
+    .insert({ conversation_id: conversationId, ...base })
     .select()
     .single();
   if (error || !data) throw new HttpError(500, "Failed to save transcript.", "TRANSCRIPT_INSERT_FAILED");
@@ -180,6 +211,13 @@ async function insertAnalysis(
   analysis: ConversationAnalysisResult,
   score: ConversationScore,
 ) {
+  const language = normalizeLanguage(analysis.language_code || analysis.language);
+  const languageFields = {
+    language_code: language,
+    language_confidence: analysis.language_confidence ?? null,
+    summary_original: analysis.summary_original || null,
+    language_specific_insights: analysis.language_specific_insights ?? {},
+  };
   const base = {
     conversation_id: conversationId,
     summary: analysis.summary,
@@ -188,12 +226,20 @@ async function insertAnalysis(
     objections: analysis.objections,
     key_points: analysis.key_points,
     customer_questions: analysis.customer_questions,
-    language: analysis.language,
+    language,
     duration_spoken_seconds: analysis.duration_spoken_seconds,
     ai_model: env.GEMINI_MODEL,
     ai_processed_at: new Date().toISOString(),
   };
   const supabase = getSupabase();
+  const withLanguage = await supabase
+    .from("conversation_analyses")
+    .insert({ ...base, ...languageFields, ...score })
+    .select()
+    .single();
+  if (!withLanguage.error && withLanguage.data) return withLanguage.data as ConversationAnalysisRow;
+
+  logger.warn({ error: withLanguage.error, conversationId }, "Saving analysis without language columns; run migration 007");
   const withScores = await supabase.from("conversation_analyses").insert({ ...base, ...score }).select().single();
   if (!withScores.error && withScores.data) return withScores.data as ConversationAnalysisRow;
 
@@ -211,9 +257,21 @@ export async function persistAnalysisResult(input: {
   liveTranscript: string;
   analysis: ConversationAnalysisResult;
 }): Promise<ConversationBundle> {
-  const enhanced = enhanceTranscript(input.analysis.transcript, input.liveTranscript);
-  const transcript = await upsertTranscript(input.conversationId, enhanced, input.analysis.language);
-  const segments = detectSpeakerSegments(enhanced, input.analysis.duration_spoken_seconds);
+  const resolved = resolveTranscripts(input.analysis, input.liveTranscript);
+  const enhanced = resolved.scoring;
+  const transcript = await upsertTranscript(input.conversationId, {
+    text: enhanced,
+    language: resolved.language,
+    original_text: resolved.original,
+    translated_text: resolved.translated,
+    original_language: resolved.language,
+    translation_language: "en",
+  });
+  const segments = detectSpeakerSegments(enhanced || resolved.original, input.analysis.duration_spoken_seconds);
+  await getSupabase()
+    .from("conversations")
+    .update({ language: resolved.language })
+    .eq("id", input.conversationId);
   const savedSegments = await replaceSegments(transcript.id, segments);
 
   const { data: conversationRow } = await getSupabase()
@@ -241,7 +299,7 @@ export async function persistAnalysisResult(input: {
   const score = scoreConversation(input.analysis, enhanced, segments, compliance);
   const analysis = await insertAnalysis(
     input.conversationId,
-    { ...input.analysis, transcript: enhanced },
+    { ...input.analysis, transcript: enhanced, language: resolved.language, language_code: resolved.language },
     score,
   );
   const hasScores = analysis.overall_score != null;

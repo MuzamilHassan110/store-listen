@@ -1,18 +1,109 @@
 .shell {
   height: 640px;
-  padding: 20px 20px 18px;
+  padding: 12px 16px 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
 }
 
+.topbar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .brand {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #9ca3af;
+}
+
+.net-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.net-dot.online {
+  background: #16a34a;
+}
+
+.net-dot.offline {
+  background: #dc2626;
+}
+
+.sync-status {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.sync-status.tone-synced {
+  color: #86efac;
+}
+
+.sync-status.tone-pending {
+  color: #facc15;
+}
+
+.sync-status.tone-offline {
+  color: #f87171;
+}
+
+.pending-badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ca8a04;
+  color: #111;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 700;
+}
+
+.sync-btn {
+  border: 1px solid #4b5563;
+  background: transparent;
+  color: #e5e7eb;
+  border-radius: 6px;
+  font-size: 10px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+
+.sync-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.lang-row {
+  width: 100%;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.lang-row select {
+  background: #1a1a1a;
+  color: #f3f3f3;
+  border: 1px solid #4b5563;
+  border-radius: 6px;
+  padding: 2px 6px;
 }
 
 .status {
@@ -68,7 +159,11 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  text-align: left;
+  text-align: start;
+}
+
+.captions.rtl {
+  direction: rtl;
 }
 
 .captions-label {

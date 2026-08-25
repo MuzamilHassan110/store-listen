@@ -32,6 +32,7 @@ export type ConversationWithTranscript = {
   duration_seconds: number | null;
   language: string | null;
   recording_url: string | null;
+  recording_path: string | null;
   status: string | null;
   recorded_at: string | null;
   created_at: string | null;
@@ -75,7 +76,8 @@ export async function createRecording(input: {
       duration_seconds: input.body.duration,
       language,
       recording_url: recordingUrl,
-      status: "recorded",
+      recording_path: objectPath,
+      status: "queued",
       recorded_at: recordedAt,
     })
     .select()
@@ -94,7 +96,8 @@ export async function createRecording(input: {
         duration_seconds: input.body.duration,
         language,
         recording_url: recordingUrl,
-        status: "recorded",
+        recording_path: objectPath,
+        status: "queued",
         recorded_at: recordedAt,
       })
       .select()
@@ -107,26 +110,23 @@ export async function createRecording(input: {
     throw new HttpError(500, "Failed to save conversation metadata.", "CONVERSATION_INSERT_FAILED");
   }
 
-  let transcript: ConversationWithTranscript["transcript"] = null;
-  if (transcriptText.length > 0) {
-    const { data: transcriptRow, error: transcriptError } = await supabase
-      .from("transcripts")
-      .insert({
-        conversation_id: conversationId,
-        text: transcriptText,
-        language,
-        is_auto_generated: true,
-      })
-      .select()
-      .single();
+  const { data: transcriptRow, error: transcriptError } = await supabase
+    .from("transcripts")
+    .insert({
+      conversation_id: conversationId,
+      text: transcriptText,
+      language,
+      is_auto_generated: true,
+    })
+    .select()
+    .single();
 
-    if (transcriptError) {
-      logger.error({ err: transcriptError }, "Failed to insert transcript");
-      throw new HttpError(500, "Failed to save transcript.", "TRANSCRIPT_INSERT_FAILED");
-    }
-
-    transcript = transcriptRow;
+  if (transcriptError || !transcriptRow) {
+    logger.error({ err: transcriptError }, "Failed to insert transcript");
+    throw new HttpError(500, "Failed to save transcript.", "TRANSCRIPT_INSERT_FAILED");
   }
+
+  const transcript = transcriptRow;
 
   return { ...conversationRow, transcript };
 }

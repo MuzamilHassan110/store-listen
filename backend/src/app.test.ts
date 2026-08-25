@@ -21,3 +21,21 @@ describe("POST /api/recordings", () => {
     expect(res.body.error.code).toBe("UNAUTHENTICATED");
   });
 });
+
+describe("GET /api/conversations/:id/analysis", () => {
+  it("rejects requests without a bearer token", async () => {
+    const res = await request(app).get("/api/conversations/00000000-0000-0000-0000-000000000000/analysis");
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("UNAUTHENTICATED");
+  });
+});
+
+describe("POST /api/conversations/:id/analyze", () => {
+  it("rejects requests without a bearer token", async () => {
+    const res = await request(app).post("/api/conversations/00000000-0000-0000-0000-000000000000/analyze");
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("UNAUTHENTICATED");
+  });
+});

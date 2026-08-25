@@ -12,6 +12,8 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   GEMINI_API_KEY: z.string().min(1).optional(),
+  GEMINI_MODEL: z.string().min(1).default("gemini-2.0-flash"),
+  GEMINI_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
   UPLOAD_DIR: z.string().default("uploads"),
 });
 

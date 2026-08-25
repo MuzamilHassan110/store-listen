@@ -5,6 +5,7 @@ import { logger } from "../lib/logger.js";
 import { getSupabase } from "../lib/supabase.js";
 import { logActivity } from "./activity.service.js";
 import { createNotification } from "./notification.service.js";
+import { queueFollowUpIfConsented, queueHighIntentAlert } from "./communication.service.js";
 
 export type ExtractedCustomer = {
   name: string | null;
@@ -38,6 +39,8 @@ export type FollowUpRow = {
   created_by: string | null;
   completed_at: string | null;
   created_at: string;
+  contact_method?: "whatsapp" | "sms";
+  message_sent?: boolean;
 };
 
 const PHONE_RE = /(?:\+?92|0)?[\s-]?(?:3\d{2})[\s-]?\d{7}|\+?\d[\d\s()-]{8,14}\d/g;
@@ -370,8 +373,16 @@ export async function detectLeads(conversationId: string, createdBy?: string | n
       message: `${extracted.name || "A customer"} is interested in ${extracted.productInterest || "a product"}.`,
       metadata: { conversation_id: conversationId, follow_up_id: followUp.id, lead_score: leadScore },
     });
+    void queueHighIntentAlert(organizationId, {
+      store_name: "store",
+      customer_name: extracted.name,
+      product_name: extracted.productInterest,
+      score: leadScore,
+      link: `/followups`,
+    });
   }
 
+  void queueFollowUpIfConsented(organizationId, String(followUp.id));
   return followUp as FollowUpRow;
 }
 

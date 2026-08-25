@@ -16,6 +16,9 @@ import { deviceRouter } from "./device.routes.js";
 import { activityRouter } from "./activity.routes.js";
 import { realtimeRouter } from "./realtime.routes.js";
 import { meRouter } from "./me.routes.js";
+import { whatsappRouter } from "./whatsapp.routes.js";
+import { smsRouter } from "./sms.routes.js";
+import { communicationRouter } from "./communication.routes.js";
 
 export const router = Router();
 
@@ -36,3 +39,6 @@ router.use("/notifications", notificationRouter);
 router.use("/reports", reportRouter);
 router.use("/export", exportRouter);
 router.use("/retention", retentionRouter);
+router.use("/whatsapp", whatsappRouter);
+router.use("/sms", smsRouter);
+router.use("/communication", communicationRouter);

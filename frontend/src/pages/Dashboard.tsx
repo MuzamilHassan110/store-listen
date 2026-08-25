@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ActivityFeed } from "../components/ActivityFeed";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useStoreFilter } from "../contexts/StoreContext";
-import { fetchAnalytics, fetchConversations, fetchDevices, fetchDueFollowUps, fetchFollowUps, fetchNotifications, fetchStores } from "../services/api";
+import { fetchAnalytics, fetchConversations, fetchDevices, fetchDueFollowUps, fetchFollowUps, fetchLeaderboard, fetchNotifications, fetchStores } from "../services/api";
+import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import { formatDateTime, formatDueLabel, formatDuration } from "../lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
@@ -15,7 +16,9 @@ const COLORS = ["#34d399", "#f87171", "#94a3b8"];
 
 export default function Dashboard() {
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
   const { selectedStoreId, selectedStore, stores } = useStoreFilter();
+  const { refreshing } = usePullToRefresh(() => queryClient.invalidateQueries());
   const storeId = selectedStoreId === "all" ? null : selectedStoreId;
   const analytics = useQuery({
     queryKey: ["analytics", selectedStoreId],
@@ -33,6 +36,7 @@ export default function Dashboard() {
     queryFn: () => fetchFollowUps({ priority: "high", status: "pending" }),
   });
   const notices = useQuery({ queryKey: ["notifications"], queryFn: fetchNotifications });
+  const leaders = useQuery({ queryKey: ["leaderboard", "week"], queryFn: () => fetchLeaderboard("week") });
 
   if (analytics.isLoading) {
     return (
@@ -54,9 +58,59 @@ export default function Dashboard() {
         <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
         <p className="mt-1 text-sm text-slate-400">
           {selectedStore ? `${selectedStore.name} · ${t("pages.dashboardHint")}` : t("pages.dashboardHint")}
+          {refreshing ? " · Refreshing…" : ""}
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:hidden">
+        <Card>
+          <CardContent>
+            <p className="text-xs uppercase tracking-wide text-slate-400">Today’s conversations</p>
+            <p className="mt-2 text-3xl font-semibold">{data.todayCount}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-xs uppercase tracking-wide text-slate-400">High intent leads</p>
+            <p className="mt-2 text-3xl font-semibold">{highLeads.data?.length ?? data.highIntentCount}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <p className="text-xs uppercase tracking-wide text-slate-400">Follow-ups due</p>
+            <p className="mt-2 text-3xl font-semibold">{due.data?.length ?? 0}</p>
+          </CardContent>
+        </Card>
+        <div className="grid grid-cols-1 gap-2">
+          <Link to="/conversations" className="flex min-h-14 items-center justify-center rounded-xl bg-emerald-500 font-medium text-slate-950">
+            View today’s conversations
+          </Link>
+          <Link to="/followups" className="flex min-h-14 items-center justify-center rounded-xl bg-slate-800 font-medium">
+            Check follow-ups
+          </Link>
+          <Link to="/leaderboard" className="flex min-h-14 items-center justify-center rounded-xl bg-slate-800 font-medium">
+            Top salesman: {leaders.data?.[0]?.salesman_name ?? "—"}
+          </Link>
+        </div>
+        <Card className="h-48">
+          <CardHeader>
+            <CardTitle>This week</CardTitle>
+          </CardHeader>
+          <CardContent className="h-32">
+            {data.perDay.length ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data.perDay.slice(-7)}>
+                  <XAxis dataKey="date" hide />
+                  <YAxis hide allowDecimals={false} />
+                  <Line type="monotone" dataKey="count" stroke="#34d399" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-slate-400">No conversations this week.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+      <div className="hidden gap-4 sm:grid-cols-2 md:grid xl:grid-cols-4">
         <Card>
           <CardContent>
             <p className="text-xs uppercase tracking-wide text-slate-400">Today’s conversations</p>
@@ -102,7 +156,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="hidden gap-4 md:grid xl:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Weekly conversation trend</CardTitle>
@@ -144,7 +198,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="hidden gap-4 md:grid xl:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Follow-ups due today</CardTitle>
@@ -203,7 +257,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="hidden gap-4 md:grid xl:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Recent conversations</CardTitle>
@@ -265,6 +319,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      <div className="hidden md:block">
       {(storeStats.data?.stores.length ?? stores.length) > 0 ? (
         <Card>
           <CardHeader>
@@ -291,6 +346,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       ) : null}
+      </div>
     </div>
   );
 }

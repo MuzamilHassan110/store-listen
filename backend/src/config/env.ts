@@ -15,6 +15,16 @@ const envSchema = z.object({
   GEMINI_MODEL: z.string().min(1).default("gemini-2.0-flash"),
   GEMINI_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
   UPLOAD_DIR: z.string().default("uploads"),
+  WHATSAPP_ENABLED: z
+    .string()
+    .optional()
+    .transform((value) => value === "true" || value === "1"),
+  WHATSAPP_CHROME_PATH: z.string().optional(),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_PHONE_NUMBER: z.string().optional(),
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

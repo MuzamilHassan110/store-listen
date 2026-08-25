@@ -13,6 +13,9 @@ export const en = {
     devices: "Devices",
     signOut: "Sign out",
     notSignedIn: "Not signed in",
+    notifications: "Notifications",
+    salesmen: "Salesmen",
+    whatsapp: "WhatsApp",
   },
   pages: {
     dashboard: "Dashboard",
@@ -40,6 +43,10 @@ export const en = {
     storeCompareHint: "Pick two or more stores and see conversations, scores, and devices side by side.",
     devices: "Devices",
     devicesHint: "Recorders linked to each store, with online status and last sync.",
+    notifications: "Notifications",
+    notificationsHint: "Alerts grouped by day. Tap one to open the related page.",
+    whatsapp: "WhatsApp",
+    whatsappHint: "Connect WhatsApp Web, manage templates, and review outbound messages.",
   },
   common: {
     retry: "Retry",

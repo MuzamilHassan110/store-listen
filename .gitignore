@@ -7,3 +7,7 @@ uploads/
 .DS_Store
 .vscode/
 .idea/
+.wwebjs_auth/
+.wwebjs_cache/
+backend/.wwebjs_auth/
+backend/.wwebjs_cache/

@@ -1,6 +1,6 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, CalendarClock, FileText, LayoutDashboard, ListChecks, LogOut, Menu, MessageSquare, MonitorSmartphone, Settings, Store, Trophy, Users, X } from "lucide-react";
-import { useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { BarChart3, Bell, CalendarClock, FileText, LayoutDashboard, ListChecks, LogOut, Menu, MessageSquare, MonitorSmartphone, Settings, Store, Trophy, Users, X } from "lucide-react";
+import { useRef, useState, type TouchEvent } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useAuth } from "../../lib/auth";
 import { useRealtimeDashboard } from "../../hooks/useRealtimeDashboard";
@@ -8,6 +8,9 @@ import { LanguageSelector } from "../LanguageSelector";
 import { Notifications } from "../Notifications";
 import { StoreSelector } from "../StoreSelector";
 import { Button } from "../ui/button";
+import { BottomNav, MOBILE_TABS } from "./BottomNav";
+import { InstallPrompt } from "../pwa/InstallPrompt";
+import { PushPermission } from "../pwa/PushPermission";
 
 const LINKS = [
   { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
@@ -20,14 +23,33 @@ const LINKS = [
   { to: "/leaderboard", labelKey: "nav.leaderboard", icon: Trophy },
   { to: "/rules", labelKey: "nav.rules", icon: ListChecks },
   { to: "/reports", labelKey: "nav.reports", icon: FileText },
+  { to: "/notifications", labelKey: "nav.notifications", icon: Bell },
   { to: "/settings", labelKey: "nav.settings", icon: Settings },
+  { to: "/settings/whatsapp", labelKey: "nav.whatsapp", icon: MessageSquare },
 ];
 
 export function AppLayout() {
   const { session, signOut } = useAuth();
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const touchStartX = useRef(0);
   useRealtimeDashboard();
+
+  function onTouchStart(event: TouchEvent<HTMLElement>): void {
+    touchStartX.current = event.changedTouches[0]?.clientX ?? 0;
+  }
+
+  function onTouchEnd(event: TouchEvent<HTMLElement>): void {
+    const endX = event.changedTouches[0]?.clientX ?? 0;
+    const delta = endX - touchStartX.current;
+    if (Math.abs(delta) < 80) return;
+    const index = MOBILE_TABS.indexOf(location.pathname as (typeof MOBILE_TABS)[number]);
+    if (index < 0) return;
+    const next = delta < 0 ? MOBILE_TABS[index + 1] : MOBILE_TABS[index - 1];
+    if (next) navigate(next);
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 lg:grid lg:grid-cols-[240px_1fr]">
@@ -76,14 +98,21 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <main className="min-w-0 px-4 py-6 lg:px-8">
+      <main
+        className="min-w-0 px-4 py-6 pb-24 md:pb-6 lg:px-8"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
         <div className="mb-4 hidden items-center justify-end gap-2 lg:flex">
           <StoreSelector />
           <LanguageSelector />
           <Notifications />
         </div>
+        <InstallPrompt />
+        <PushPermission />
         <Outlet />
       </main>
+      <BottomNav />
     </div>
   );
 }

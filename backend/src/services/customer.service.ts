@@ -15,6 +15,10 @@ export type CustomerRow = {
   notes: string | null;
   purchase_probability: number;
   created_at: string;
+  whatsapp_number: string | null;
+  sms_number: string | null;
+  preferred_contact: "whatsapp" | "sms";
+  contact_consent: boolean;
 };
 
 export type CustomerDetail = CustomerRow & {
@@ -51,6 +55,10 @@ function mapCustomer(row: Record<string, unknown>, latestScore?: number | null):
     notes: row.notes ? String(row.notes) : null,
     purchase_probability: purchaseProbability(visits, purchases, latestScore),
     created_at: String(row.created_at ?? new Date().toISOString()),
+    whatsapp_number: row.whatsapp_number ? String(row.whatsapp_number) : null,
+    sms_number: row.sms_number ? String(row.sms_number) : null,
+    preferred_contact: row.preferred_contact === "sms" ? "sms" : "whatsapp",
+    contact_consent: Boolean(row.contact_consent),
   };
 }
 
@@ -144,9 +152,24 @@ export async function updateCustomerNotes(
   customerId: string,
   notes: string,
 ): Promise<CustomerRow> {
+  return updateCustomer(organizationId, customerId, { notes });
+}
+
+export async function updateCustomer(
+  organizationId: string,
+  customerId: string,
+  input: Partial<{
+    notes: string;
+    whatsapp_number: string | null;
+    sms_number: string | null;
+    preferred_contact: "whatsapp" | "sms";
+    contact_consent: boolean;
+    phone: string | null;
+  }>,
+): Promise<CustomerRow> {
   const { data, error } = await getSupabase()
     .from("customers")
-    .update({ notes })
+    .update(input)
     .eq("id", customerId)
     .eq("organization_id", organizationId)
     .select()

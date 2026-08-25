@@ -20,6 +20,8 @@ import Stores from "./pages/Stores";
 import StoreDetail from "./pages/StoreDetail";
 import StoreComparison from "./pages/StoreComparison";
 import Devices from "./pages/Devices";
+import NotificationsPage from "./pages/NotificationsPage";
+import WhatsAppSettings from "./pages/WhatsAppSettings";
 
 function ProtectedLayout() {
   const { session, loading } = useAuth();
@@ -58,6 +60,8 @@ export default function App() {
         <Route path="/rules" element={<Rules />} />
         <Route path="/Rules" element={<Rules />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/settings/whatsapp" element={<WhatsAppSettings />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
       </Route>
     </Routes>
   );

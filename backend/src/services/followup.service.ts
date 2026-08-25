@@ -3,6 +3,7 @@ import { logger } from "../lib/logger.js";
 import { getSupabase } from "../lib/supabase.js";
 import { logActivity } from "./activity.service.js";
 import { generateFollowUpMessage, type FollowUpRow } from "./lead.service.js";
+import { queueFollowUpIfConsented } from "./communication.service.js";
 
 export type FollowUpFilters = {
   status?: string;
@@ -47,6 +48,8 @@ function mapFollowUp(row: Record<string, unknown>): FollowUpWithContext {
     created_by: row.created_by ? String(row.created_by) : null,
     completed_at: row.completed_at ? String(row.completed_at) : null,
     created_at: String(row.created_at ?? new Date().toISOString()),
+    contact_method: row.contact_method === "sms" ? "sms" : "whatsapp",
+    message_sent: Boolean(row.message_sent),
     salesman_name: salesman && typeof salesman === "object" ? String((salesman as { name?: string }).name ?? "") : null,
     conversation_summary:
       analyses && typeof analyses === "object" ? String((analyses as { summary?: string }).summary ?? "") : null,
@@ -150,6 +153,7 @@ export async function createFollowUp(
     description: `Follow-up created${mapped.customer_name ? ` for ${mapped.customer_name}` : ""}`,
     metadata: { conversation_id: input.conversation_id, follow_up_id: mapped.id },
   });
+  void queueFollowUpIfConsented(organizationId, mapped.id);
   return mapped;
 }
 

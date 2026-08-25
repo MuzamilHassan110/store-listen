@@ -208,6 +208,8 @@ export interface FollowUp {
   conversation_recorded_at?: string | null;
   completed_at?: string | null;
   created_at?: string;
+  contact_method?: "whatsapp" | "sms";
+  message_sent?: boolean;
 }
 
 export interface Customer {
@@ -221,6 +223,10 @@ export interface Customer {
   preferred_language?: string | null;
   notes?: string | null;
   purchase_probability?: number;
+  whatsapp_number?: string | null;
+  sms_number?: string | null;
+  preferred_contact?: "whatsapp" | "sms";
+  contact_consent?: boolean;
 }
 
 export interface CustomerDetail extends Customer {
@@ -281,5 +287,40 @@ export interface AppNotification {
   message: string;
   is_read: boolean;
   metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface CommunicationSettings {
+  whatsapp_enabled: boolean;
+  sms_enabled: boolean;
+  push_enabled: boolean;
+  quiet_hours_start: number;
+  quiet_hours_end: number;
+  timezone: string;
+  manager_whatsapp: string | null;
+  manager_sms: string | null;
+  follow_up_template: string | null;
+  daily_report_template: string | null;
+  high_intent_template: string | null;
+}
+
+export interface WhatsAppStatus {
+  enabled: boolean;
+  status: "disconnected" | "connecting" | "qr" | "ready";
+  ready: boolean;
+  qr: string | null;
+  qr_data_url: string | null;
+}
+
+export interface OutboundMessage {
+  id: string;
+  organization_id: string;
+  follow_up_id: string | null;
+  customer_phone: string | null;
+  message_text: string;
+  template_used: string | null;
+  channel: "whatsapp" | "sms";
+  status: string;
+  sent_at: string | null;
   created_at: string;
 }

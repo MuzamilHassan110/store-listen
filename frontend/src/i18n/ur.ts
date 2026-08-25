@@ -15,6 +15,9 @@ export const ur: Messages = {
     devices: "ڈیوائسز",
     signOut: "سائن آؤٹ",
     notSignedIn: "سائن ان نہیں",
+    notifications: "اطلاعات",
+    salesmen: "سیلز مین",
+    whatsapp: "واٹس ایپ",
   },
   pages: {
     dashboard: "ڈیش بورڈ",
@@ -42,6 +45,10 @@ export const ur: Messages = {
     storeCompareHint: "دو یا زیادہ اسٹورز منتخب کریں اور گفتگو، اسکور، اور ڈیوائسز دیکھیں۔",
     devices: "ڈیوائسز",
     devicesHint: "ہر اسٹور سے منسلک ریکارڈر، آن لائن حیثیت اور آخری سنک۔",
+    notifications: "اطلاعات",
+    notificationsHint: "روزانہ کی اطلاعات۔ تفصیل کے لیے ٹیپ کریں۔",
+    whatsapp: "واٹس ایپ",
+    whatsappHint: "واٹس ایپ منسلک کریں، ٹیمپلیٹس منظم کریں، اور پیغامات دیکھیں۔",
   },
   common: {
     retry: "دوبارہ کوشش",

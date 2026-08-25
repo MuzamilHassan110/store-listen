@@ -5,7 +5,7 @@ import { Bell } from "lucide-react";
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "../services/api";
 import { Button } from "./ui/button";
 
-function destination(metadata?: Record<string, unknown>, type?: string): string {
+export function notificationDestination(metadata?: Record<string, unknown>, type?: string): string {
   const followUpId = metadata?.follow_up_id ? String(metadata.follow_up_id) : "";
   const conversationId = metadata?.conversation_id ? String(metadata.conversation_id) : "";
   if (type === "report_ready") return "/reports";
@@ -66,7 +66,7 @@ export function Notifications() {
                   onClick={() => {
                     if (!item.is_read) markOne.mutate(item.id);
                     setOpen(false);
-                    navigate(destination(item.metadata, item.type));
+                    navigate(notificationDestination(item.metadata, item.type));
                   }}
                 >
                   <p className="font-medium">{item.title}</p>

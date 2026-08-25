@@ -2,6 +2,7 @@ import { logger } from "../lib/logger.js";
 import { getSupabase } from "../lib/supabase.js";
 import { createNotification } from "./notification.service.js";
 import { generateDailyReport, generateMonthlyReport, generateWeeklyReport } from "./report.service.js";
+import { buildDailyReportVars, flushQueuedMessages, queueDailyReportMessage } from "./communication.service.js";
 
 const HOUR_MS = 60 * 60 * 1000;
 let timer: NodeJS.Timeout | null = null;
@@ -55,6 +56,10 @@ export async function runScheduledReports(now = new Date()): Promise<number> {
         message: `A ${type} store report was generated${row.recipient_email ? ` for ${row.recipient_email}` : ""}.`,
         metadata: { report_id: report.id, file_url: report.file_url, recipient_email: row.recipient_email },
       });
+      if (type === "daily") {
+        const vars = await buildDailyReportVars(organizationId, report.file_url);
+        void queueDailyReportMessage(organizationId, vars);
+      }
       sent += 1;
       logger.info({ organizationId, type, reportId: report.id }, "Scheduled report generated");
     } catch (err) {
@@ -68,6 +73,7 @@ export function startReportScheduler(): void {
   if (timer) return;
   timer = setInterval(() => {
     void runScheduledReports();
+    void flushQueuedMessages();
   }, HOUR_MS);
   logger.info("Report scheduler started (hourly)");
 }

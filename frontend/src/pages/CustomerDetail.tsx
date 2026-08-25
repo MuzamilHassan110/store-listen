@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "../contexts/LanguageContext";
-import { fetchCustomerById, updateCustomerNotes } from "../services/api";
+import { fetchCustomerById, fetchWhatsAppHistory, updateCustomer } from "../services/api";
 import { formatDateTime, formatDuration } from "../lib/format";
 import { FollowUpStatusBadge, PriorityBadge } from "../components/conversation/Badges";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import { EmptyState, ErrorState } from "../components/States";
@@ -16,13 +17,29 @@ export default function CustomerDetail() {
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState<string | null>(null);
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
+  const [smsNumber, setSmsNumber] = useState<string | null>(null);
+  const [preferred, setPreferred] = useState<"whatsapp" | "sms" | null>(null);
+  const [consent, setConsent] = useState<boolean | null>(null);
   const detail = useQuery({
     queryKey: ["customer", id],
     queryFn: () => fetchCustomerById(id),
     enabled: Boolean(id),
   });
+  const history = useQuery({
+    queryKey: ["whatsapp-history"],
+    queryFn: fetchWhatsAppHistory,
+    enabled: Boolean(id),
+  });
   const saveNotes = useMutation({
-    mutationFn: () => updateCustomerNotes(id, notes ?? detail.data?.notes ?? ""),
+    mutationFn: () =>
+      updateCustomer(id, {
+        notes: notes ?? detail.data?.notes ?? "",
+        whatsapp_number: whatsappNumber ?? detail.data?.whatsapp_number ?? "",
+        sms_number: smsNumber ?? detail.data?.sms_number ?? "",
+        preferred_contact: preferred ?? detail.data?.preferred_contact ?? "whatsapp",
+        contact_consent: consent ?? detail.data?.contact_consent ?? false,
+      }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["customer", id] }),
   });
 
@@ -68,6 +85,40 @@ export default function CustomerDetail() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Communication</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Input
+            placeholder="WhatsApp number"
+            value={whatsappNumber ?? customer.whatsapp_number ?? customer.phone ?? ""}
+            onChange={(e) => setWhatsappNumber(e.target.value)}
+          />
+          <Input
+            placeholder="SMS number"
+            value={smsNumber ?? customer.sms_number ?? customer.phone ?? ""}
+            onChange={(e) => setSmsNumber(e.target.value)}
+          />
+          <select
+            className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm"
+            value={preferred ?? customer.preferred_contact ?? "whatsapp"}
+            onChange={(e) => setPreferred(e.target.value === "sms" ? "sms" : "whatsapp")}
+          >
+            <option value="whatsapp">Prefer WhatsApp</option>
+            <option value="sms">Prefer SMS</option>
+          </select>
+          <label className="flex min-h-11 items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={consent ?? customer.contact_consent ?? false}
+              onChange={(e) => setConsent(e.target.checked)}
+            />
+            Customer consented to follow-up messages
+          </label>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Notes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -77,7 +128,7 @@ export default function CustomerDetail() {
             onChange={(e) => setNotes(e.target.value)}
           />
           <Button onClick={() => saveNotes.mutate()} disabled={saveNotes.isPending}>
-            Save notes
+            Save
           </Button>
         </CardContent>
       </Card>
@@ -142,6 +193,24 @@ export default function CustomerDetail() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Message history</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {(history.data ?? [])
+            .filter((item) => item.customer_phone && (item.customer_phone === customer.phone || item.customer_phone === customer.whatsapp_number))
+            .map((item) => (
+              <p key={item.id} className="rounded-lg bg-slate-950 px-3 py-2 text-sm text-slate-300">
+                {item.channel} · {item.status} · {item.message_text}
+              </p>
+            ))}
+          {!(history.data ?? []).some((item) => item.customer_phone === customer.phone || item.customer_phone === customer.whatsapp_number) ? (
+            <p className="text-sm text-slate-400">No outbound messages for this customer.</p>
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
   );
 }

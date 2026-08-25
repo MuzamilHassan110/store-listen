@@ -6,8 +6,11 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 import { StoreProvider } from "./contexts/StoreContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import { AuthProvider } from "./lib/auth";
+import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import "./index.css";
+
+registerSW({ immediate: true });
 
 const root = document.getElementById("root");
 const queryClient = new QueryClient({

@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Download, Frown, Meh, Pause, Play, RefreshCw, Smile } from "lucide-react";
+import { ArrowLeft, Frown, Meh, RefreshCw, Smile } from "lucide-react";
+import { MobileAudioPlayer } from "../components/audio/MobileAudioPlayer";
 import { useLanguage } from "../contexts/LanguageContext";
 import { detectConversationLead, fetchConversationAnalysis, generateConversationPdf, retryAnalysis, scoreConversation, translateConversation } from "../services/api";
 import { formatDateTime, formatDuration } from "../lib/format";
@@ -23,9 +24,7 @@ export default function ConversationDetail() {
   const { id = "" } = useParams();
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [current, setCurrent] = useState(0);
+  const [transcriptOpen, setTranscriptOpen] = useState(true);
   const [transcriptView, setTranscriptView] = useState<TranscriptView>("original");
 
   const detail = useQuery({
@@ -68,17 +67,6 @@ export default function ConversationDetail() {
   const duration = conversation?.duration_seconds ?? 0;
   const segments = useMemo(() => conversation?.segments ?? [], [conversation]);
 
-  async function togglePlay(): Promise<void> {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (audio.paused) {
-      await audio.play();
-      setPlaying(true);
-    } else {
-      audio.pause();
-      setPlaying(false);
-    }
-  }
 
   if (detail.isLoading) {
     return (
@@ -186,36 +174,8 @@ export default function ConversationDetail() {
           <CardHeader>
             <CardTitle>{t("conversation.audio")}</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-wrap items-center gap-3">
-            <audio
-              ref={audioRef}
-              src={conversation.recording_url}
-              onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime)}
-              onEnded={() => setPlaying(false)}
-            />
-            <Button variant="secondary" onClick={() => void togglePlay()}>
-              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {playing ? t("common.pause") : t("common.play")}
-            </Button>
-            <input
-              type="range"
-              min={0}
-              max={duration || 1}
-              value={current}
-              onChange={(e) => {
-                const value = Number(e.target.value);
-                setCurrent(value);
-                if (audioRef.current) audioRef.current.currentTime = value;
-              }}
-              className="min-w-[180px] flex-1"
-            />
-            <span className="text-sm text-slate-400">
-              {formatClock(current)} / {formatDuration(duration)}
-            </span>
-            <a href={conversation.recording_url} download className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-700 px-4 text-sm">
-              <Download className="h-4 w-4" />
-              {t("common.download")}
-            </a>
+          <CardContent>
+            <MobileAudioPlayer src={conversation.recording_url} duration={duration} />
           </CardContent>
         </Card>
       ) : null}
@@ -388,7 +348,9 @@ export default function ConversationDetail() {
 
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>{t("conversation.transcript")}</CardTitle>
+          <button type="button" className="text-left" onClick={() => setTranscriptOpen((value) => !value)}>
+            <CardTitle>{t("conversation.transcript")} {transcriptOpen ? "▾" : "▸"}</CardTitle>
+          </button>
           <div className="flex flex-wrap gap-2">
             {(["original", "english", "side-by-side"] as const).map((view) => (
               <Button
@@ -419,7 +381,7 @@ export default function ConversationDetail() {
             ) : null}
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        {transcriptOpen ? <CardContent className="space-y-3">
           {translate.isError ? <p className="text-sm text-red-300">{translate.error.message}</p> : null}
           {transcriptView === "side-by-side" ? (
             <div className="grid gap-4 md:grid-cols-2">
@@ -449,7 +411,7 @@ export default function ConversationDetail() {
               {originalTranscript || t("errors.noTranscript")}
             </p>
           )}
-        </CardContent>
+        </CardContent> : null}
       </Card>
     </div>
   );

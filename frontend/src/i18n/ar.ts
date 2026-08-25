@@ -15,6 +15,9 @@ export const ar: Messages = {
     devices: "الأجهزة",
     signOut: "تسجيل الخروج",
     notSignedIn: "غير مسجّل",
+    notifications: "الإشعارات",
+    salesmen: "البائعون",
+    whatsapp: "واتساب",
   },
   pages: {
     dashboard: "لوحة التحكم",
@@ -42,6 +45,10 @@ export const ar: Messages = {
     storeCompareHint: "اختر متجرين أو أكثر لعرض المحادثات والدرجات والأجهزة.",
     devices: "الأجهزة",
     devicesHint: "أجهزة التسجيل المرتبطة بكل متجر مع الحالة وآخر مزامنة.",
+    notifications: "الإشعارات",
+    notificationsHint: "التنبيهات مجمّعة حسب اليوم. اضغط لفتح الصفحة.",
+    whatsapp: "واتساب",
+    whatsappHint: "اربط واتساب وأدر القوالب وراجع الرسائل الصادرة.",
   },
   common: {
     retry: "إعادة المحاولة",

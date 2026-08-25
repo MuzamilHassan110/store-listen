@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 import { sendError, sendSuccess } from "../lib/api-response.js";
-import { getCustomerDetail, listCustomers, updateCustomerNotes } from "../services/customer.service.js";
+import { getCustomerDetail, listCustomers, updateCustomer } from "../services/customer.service.js";
 
 function routeId(value: string | string[] | undefined): string | undefined {
   return typeof value === "string" ? value : value?.[0];
@@ -49,8 +49,15 @@ export const updateCustomerHandler: RequestHandler = async (req, res, next) => {
       sendError(res, 400, "Customer id is required.", "VALIDATION_ERROR");
       return;
     }
-    const notes = typeof req.body?.notes === "string" ? req.body.notes : "";
-    const data = await updateCustomerNotes(req.auth.organizationId, id, notes);
+    const body = req.body as Record<string, unknown>;
+    const data = await updateCustomer(req.auth.organizationId, id, {
+      notes: typeof body.notes === "string" ? body.notes : undefined,
+      whatsapp_number: typeof body.whatsapp_number === "string" ? body.whatsapp_number : undefined,
+      sms_number: typeof body.sms_number === "string" ? body.sms_number : undefined,
+      preferred_contact: body.preferred_contact === "sms" || body.preferred_contact === "whatsapp" ? body.preferred_contact : undefined,
+      contact_consent: typeof body.contact_consent === "boolean" ? body.contact_consent : undefined,
+      phone: typeof body.phone === "string" ? body.phone : undefined,
+    });
     sendSuccess(res, 200, "Customer updated.", data);
   } catch (err) {
     next(err);

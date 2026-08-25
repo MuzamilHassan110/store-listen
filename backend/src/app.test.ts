@@ -112,6 +112,29 @@ describe("store, device, and realtime routes", () => {
   });
 });
 
+describe("whatsapp, sms, and communication routes", () => {
+  it("rejects unauthenticated messaging requests", async () => {
+    const status = await request(app).get("/api/whatsapp/status");
+    const connect = await request(app).post("/api/whatsapp/connect");
+    const send = await request(app).post("/api/whatsapp/send");
+    const logout = await request(app).post("/api/whatsapp/logout");
+    const templates = await request(app).get("/api/whatsapp/templates");
+    const sms = await request(app).post("/api/sms/send");
+    const smsStatus = await request(app).get("/api/sms/status/00000000-0000-0000-0000-000000000000");
+    const comm = await request(app).get("/api/communication/settings");
+
+    expect(status.status).toBe(401);
+    expect(connect.status).toBe(401);
+    expect(send.status).toBe(401);
+    expect(logout.status).toBe(401);
+    expect(templates.status).toBe(401);
+    expect(sms.status).toBe(401);
+    expect(smsStatus.status).toBe(401);
+    expect(comm.status).toBe(401);
+    expect(status.body.error.code).toBe("UNAUTHENTICATED");
+  });
+});
+
 describe("report and export routes", () => {
   it("rejects unauthenticated report and export requests", async () => {
     const reports = await request(app).get("/api/reports");

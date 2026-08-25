@@ -12,6 +12,8 @@ import {
   snoozeFollowUp,
   suggestFollowUpMessage,
   exportFollowUpsCsv,
+  previewFollowUpMessage,
+  sendFollowUpWhatsApp,
 } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
 import { ExportMenu } from "../components/ExportMenu";
@@ -32,6 +34,8 @@ export default function Followups() {
   const [priority, setPriority] = useState<FollowUpPriority | "">("");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [sendId, setSendId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
   const [form, setForm] = useState({
     conversation_id: "",
     customer_name: "",
@@ -71,6 +75,19 @@ export default function Followups() {
     onSuccess: invalidate,
   });
   const suggest = useMutation({ mutationFn: suggestFollowUpMessage, onSuccess: invalidate });
+  const preview = useQuery({
+    queryKey: ["whatsapp-preview", sendId],
+    queryFn: () => previewFollowUpMessage(sendId!),
+    enabled: Boolean(sendId),
+  });
+  const sendWhatsApp = useMutation({
+    mutationFn: () => sendFollowUpWhatsApp(sendId!, draft || preview.data?.text),
+    onSuccess: () => {
+      setSendId(null);
+      setDraft("");
+      invalidate();
+    },
+  });
 
   const rows = useMemo(() => list.data ?? [], [list.data]);
 
@@ -132,6 +149,7 @@ export default function Followups() {
                   {item.suggested_message ? (
                     <p className="mt-2 rounded-lg bg-slate-950 px-3 py-2 text-sm text-emerald-200">{item.suggested_message}</p>
                   ) : null}
+                  {item.message_sent ? <p className="mt-2 text-xs text-emerald-400">Message sent via {item.contact_method ?? "whatsapp"}</p> : null}
                   <Link to={`/conversations/${item.conversation_id}`} className="mt-2 inline-block text-sm text-emerald-400">
                     Open conversation
                   </Link>
@@ -147,6 +165,16 @@ export default function Followups() {
                     <Button size="sm" variant="secondary" onClick={() => suggest.mutate(item.id)}>
                       Suggest SMS
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setSendId(item.id);
+                        setDraft(item.suggested_message ?? "");
+                      }}
+                    >
+                      Send WhatsApp
+                    </Button>
                     <Button size="sm" variant="danger" onClick={() => cancel.mutate(item.id)}>
                       Cancel
                     </Button>
@@ -157,6 +185,37 @@ export default function Followups() {
           ))}
         </div>
       )}
+
+      {sendId ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-950/70 p-4">
+          <Card className="w-full max-w-lg">
+            <CardHeader>
+              <CardTitle>Send WhatsApp</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {preview.isLoading ? <Skeleton className="h-24" /> : null}
+              {preview.data && !preview.data.consented ? (
+                <p className="text-sm text-amber-300">This customer has not given contact consent yet.</p>
+              ) : null}
+              <textarea
+                className="min-h-32 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+                value={draft || preview.data?.text || ""}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+              <p className="text-xs text-slate-500">To: {preview.data?.phone || "no number"}</p>
+              {sendWhatsApp.isError ? <p className="text-sm text-red-300">{sendWhatsApp.error.message}</p> : null}
+              <div className="flex gap-2">
+                <Button onClick={() => sendWhatsApp.mutate()} disabled={sendWhatsApp.isPending || !preview.data?.consented}>
+                  {sendWhatsApp.isPending ? "Sending…" : "Send"}
+                </Button>
+                <Button variant="ghost" onClick={() => setSendId(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
 
       {open ? (
         <div className="fixed inset-0 z-40 grid place-items-center bg-slate-950/70 p-4">

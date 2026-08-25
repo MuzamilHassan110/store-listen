@@ -28,6 +28,9 @@ import type {
   LanguageInsights,
   Transcript,
   TranscriptSegment,
+  CommunicationSettings,
+  WhatsAppStatus,
+  OutboundMessage,
 } from "../types/conversation";
 import type { ActivityLog, Device, SessionProfile, Store, StoreComparisonRow, StoreOverview } from "../types/store";
 
@@ -652,7 +655,11 @@ export async function fetchCustomerById(id: string): Promise<CustomerDetail> {
 }
 
 export async function updateCustomerNotes(id: string, notes: string): Promise<Customer> {
-  return apiJson<Customer>(`/api/customers/${id}`, { method: "PUT", body: JSON.stringify({ notes }) });
+  return updateCustomer(id, { notes });
+}
+
+export async function updateCustomer(id: string, input: Partial<Customer>): Promise<Customer> {
+  return apiJson<Customer>(`/api/customers/${id}`, { method: "PUT", body: JSON.stringify(input) });
 }
 
 export async function fetchNotifications(): Promise<AppNotification[]> {
@@ -781,4 +788,64 @@ export async function restartDevice(id: string): Promise<Device> {
 export async function fetchActivity(storeId?: string | null): Promise<ActivityLog[]> {
   const suffix = storeId && storeId !== "all" ? `?storeId=${encodeURIComponent(storeId)}` : "";
   return apiJson<ActivityLog[]>(`/api/activity${suffix}`);
+}
+
+export async function fetchWhatsAppStatus(): Promise<WhatsAppStatus> {
+  return apiJson<WhatsAppStatus>("/api/whatsapp/status");
+}
+
+export async function connectWhatsApp(): Promise<WhatsAppStatus> {
+  return apiJson<WhatsAppStatus>("/api/whatsapp/connect", { method: "POST" });
+}
+
+export async function logoutWhatsApp(): Promise<WhatsAppStatus> {
+  return apiJson<WhatsAppStatus>("/api/whatsapp/logout", { method: "POST" });
+}
+
+export async function fetchWhatsAppTemplates(): Promise<{
+  templates: Array<{ name: string; channel: string; label: string; body: string }>;
+}> {
+  return apiJson("/api/whatsapp/templates");
+}
+
+export async function fetchWhatsAppHistory(): Promise<OutboundMessage[]> {
+  return apiJson<OutboundMessage[]>("/api/whatsapp/history");
+}
+
+export async function previewFollowUpMessage(
+  followUpId: string,
+  channel: "whatsapp" | "sms" = "whatsapp",
+): Promise<{ text: string; phone: string | null; consented: boolean }> {
+  return apiJson(`/api/whatsapp/preview?follow_up_id=${followUpId}&channel=${channel}`);
+}
+
+export async function sendFollowUpWhatsApp(
+  followUpId: string,
+  text?: string,
+  channel: "whatsapp" | "sms" = "whatsapp",
+): Promise<OutboundMessage> {
+  return apiJson<OutboundMessage>("/api/whatsapp/send", {
+    method: "POST",
+    body: JSON.stringify({ follow_up_id: followUpId, message: text, channel }),
+  });
+}
+
+export async function sendWhatsAppTest(to: string, message: string): Promise<OutboundMessage> {
+  return apiJson<OutboundMessage>("/api/whatsapp/send", {
+    method: "POST",
+    body: JSON.stringify({ to, message }),
+  });
+}
+
+export async function fetchCommunicationSettings(): Promise<CommunicationSettings> {
+  return apiJson<CommunicationSettings>("/api/communication/settings");
+}
+
+export async function saveCommunicationSettings(
+  input: Partial<CommunicationSettings>,
+): Promise<CommunicationSettings> {
+  return apiJson<CommunicationSettings>("/api/communication/settings", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
 }

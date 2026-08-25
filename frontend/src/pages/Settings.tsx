@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import {
+  fetchCommunicationSettings,
   fetchRetentionStatus,
   fetchSchedules,
   runRetentionCleanup,
+  saveCommunicationSettings,
   saveRetentionDays,
   saveSchedule,
 } from "../services/api";
@@ -21,6 +24,11 @@ export default function Settings() {
   const [email, setEmail] = useState("");
   const [type, setType] = useState("weekly");
   const [days, setDays] = useState(90);
+  const comm = useQuery({ queryKey: ["communication-settings"], queryFn: fetchCommunicationSettings });
+  const saveComm = useMutation({
+    mutationFn: saveCommunicationSettings,
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["communication-settings"] }),
+  });
 
   const schedules = useQuery({ queryKey: ["schedules"], queryFn: fetchSchedules });
   const retention = useQuery({
@@ -52,6 +60,72 @@ export default function Settings() {
         <h1 className="text-2xl font-semibold">{t("pages.settings")}</h1>
         <p className="mt-1 text-sm text-slate-400">{t("pages.settingsHint")}</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Notifications & quiet hours</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {comm.isError ? (
+            <ErrorState message={comm.error.message} onRetry={() => void comm.refetch()} />
+          ) : (
+            <>
+              <label className="flex min-h-11 items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={comm.data?.push_enabled ?? true}
+                  onChange={(e) => saveComm.mutate({ push_enabled: e.target.checked })}
+                />
+                Push notifications
+              </label>
+              <label className="flex min-h-11 items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={comm.data?.whatsapp_enabled ?? false}
+                  onChange={(e) => saveComm.mutate({ whatsapp_enabled: e.target.checked })}
+                />
+                WhatsApp notifications
+              </label>
+              <label className="flex min-h-11 items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={comm.data?.sms_enabled ?? false}
+                  onChange={(e) => saveComm.mutate({ sms_enabled: e.target.checked })}
+                />
+                SMS notifications
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-sm text-slate-400">
+                  Quiet hours start (24h)
+                  <Input
+                    type="number"
+                    className="mt-1"
+                    value={comm.data?.quiet_hours_start ?? 22}
+                    onChange={(e) => saveComm.mutate({ quiet_hours_start: Number(e.target.value) })}
+                  />
+                </label>
+                <label className="text-sm text-slate-400">
+                  Quiet hours end
+                  <Input
+                    type="number"
+                    className="mt-1"
+                    value={comm.data?.quiet_hours_end ?? 9}
+                    onChange={(e) => saveComm.mutate({ quiet_hours_end: Number(e.target.value) })}
+                  />
+                </label>
+              </div>
+              <Input
+                placeholder="Manager WhatsApp number"
+                defaultValue={comm.data?.manager_whatsapp ?? ""}
+                onBlur={(e) => saveComm.mutate({ manager_whatsapp: e.target.value || null })}
+              />
+              <Link to="/settings/whatsapp" className="inline-flex min-h-11 items-center text-sm text-emerald-400">
+                Open WhatsApp settings
+              </Link>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

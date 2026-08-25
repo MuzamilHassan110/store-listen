@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { fetchLeaderboard } from "../services/api";
+import { exportSalesmenCsv, fetchLeaderboard } from "../services/api";
+import { ExportMenu } from "../components/ExportMenu";
 import { scoreTone } from "../components/conversation/ScoreBar";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Select } from "../components/ui/select";
@@ -25,11 +26,14 @@ export default function Leaderboard() {
           <h1 className="text-2xl font-semibold">Leaderboard</h1>
           <p className="mt-1 text-sm text-slate-400">Salesmen ranked by average conversation score.</p>
         </div>
+        <div className="flex gap-2">
+          <ExportMenu onExport={exportSalesmenCsv} />
         <Select value={period} onChange={(e) => setPeriod(e.target.value as typeof period)} className="w-40">
           <option value="week">This week</option>
           <option value="month">This month</option>
           <option value="all">All time</option>
         </Select>
+        </div>
       </div>
 
       {board.isLoading ? (

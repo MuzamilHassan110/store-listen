@@ -1,202 +1,175 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
-import { generateReport } from "../services/api";
-import { formatDateTime, formatDuration } from "../lib/format";
+import {
+  fetchSalesmen,
+  fetchStoredReports,
+  generateConversationPdf,
+  generateSalesmanPdf,
+  generateStorePdf,
+} from "../services/api";
+import { formatDateTime } from "../lib/format";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Input } from "../components/ui/input";
 import { Select } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
 import { EmptyState, ErrorState } from "../components/States";
-import { SentimentBadge } from "../components/conversation/Badges";
 
-function presetRange(kind: "daily" | "weekly" | "monthly") {
+function presetRange(kind: "today" | "week" | "month" | "custom", customFrom: string, customTo: string) {
   const to = new Date();
-  const from = kind === "daily" ? to : kind === "weekly" ? subDays(to, 7) : subDays(to, 30);
-  return { from: format(from, "yyyy-MM-dd"), to: format(to, "yyyy-MM-dd") };
-}
-
-function downloadCsv(filename: string, rows: string[][]): void {
-  const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+  if (kind === "today") return { from: format(to, "yyyy-MM-dd"), to: format(to, "yyyy-MM-dd") };
+  if (kind === "week") return { from: format(subDays(to, 7), "yyyy-MM-dd"), to: format(to, "yyyy-MM-dd") };
+  if (kind === "month") return { from: format(subDays(to, 30), "yyyy-MM-dd"), to: format(to, "yyyy-MM-dd") };
+  return { from: customFrom, to: customTo };
 }
 
 export default function Reports() {
-  const [preset, setPreset] = useState<"daily" | "weekly" | "monthly">("weekly");
-  const range = useMemo(() => presetRange(preset), [preset]);
-  const report = useQuery({
-    queryKey: ["report", range],
-    queryFn: () => generateReport(range),
+  const queryClient = useQueryClient();
+  const [kind, setKind] = useState<"conversation" | "salesman" | "store">("store");
+  const [preset, setPreset] = useState<"today" | "week" | "month" | "custom">("week");
+  const [customFrom, setCustomFrom] = useState(format(subDays(new Date(), 7), "yyyy-MM-dd"));
+  const [customTo, setCustomTo] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [conversationId, setConversationId] = useState("");
+  const [salesmanId, setSalesmanId] = useState("");
+  const [preview, setPreview] = useState<string | null>(null);
+  const [ready, setReady] = useState<string>("");
+
+  const range = useMemo(() => presetRange(preset, customFrom, customTo), [preset, customFrom, customTo]);
+  const reports = useQuery({ queryKey: ["stored-reports"], queryFn: fetchStoredReports });
+  const salesmen = useQuery({ queryKey: ["salesmen"], queryFn: fetchSalesmen });
+
+  const generate = useMutation({
+    mutationFn: async () => {
+      if (kind === "conversation") {
+        if (!conversationId) throw new Error("Enter a conversation ID.");
+        return generateConversationPdf(conversationId.trim());
+      }
+      if (kind === "salesman") {
+        if (!salesmanId) throw new Error("Select a salesman.");
+        return generateSalesmanPdf(salesmanId, range.from, range.to);
+      }
+      return generateStorePdf(range.from, range.to);
+    },
+    onSuccess: (report) => {
+      setReady(report.file_url ?? "");
+      void queryClient.invalidateQueries({ queryKey: ["stored-reports"] });
+    },
   });
 
-  function exportPdf(): void {
-    if (!report.data) return;
-    const doc = new jsPDF();
-    doc.text("StoreListen report", 14, 16);
-    doc.text(`${report.data.range.from} to ${report.data.range.to}`, 14, 24);
-    autoTable(doc, {
-      startY: 32,
-      head: [["Metric", "Value"]],
-      body: [
-        ["Conversations", String(report.data.analytics.totalConversations)],
-        ["Analyzed", `${Math.round(report.data.analytics.analyzedPercentage)}%`],
-        ["High intent", String(report.data.analytics.highIntentCount)],
-        ["Avg duration", formatDuration(report.data.analytics.averageDuration)],
-      ],
-    });
-    autoTable(doc, {
-      startY: (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 80 + 10,
-      head: [["Objection", "Count"]],
-      body: report.data.analytics.objections.map((item) => [item.name, String(item.value)]),
-    });
-    doc.save(`storelisten-report-${range.from}.pdf`);
-  }
-
-  function exportCsv(): void {
-    if (!report.data) return;
-    downloadCsv(`storelisten-report-${range.from}.csv`, [
-      ["id", "recorded_at", "duration", "status", "sentiment", "intent"],
-      ...report.data.conversations.map((item) => [
-        item.id,
-        item.recorded_at,
-        String(item.duration_seconds),
-        item.status,
-        item.analysis?.sentiment ?? "",
-        item.analysis?.purchase_intent ?? "",
-      ]),
-    ]);
-  }
-
   return (
-    <div className="space-y-6 print:bg-white print:text-black">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Reports</h1>
-          <p className="mt-1 text-sm text-slate-400">Generate a dated snapshot of conversations and AI findings.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Select value={preset} onChange={(e) => setPreset(e.target.value as typeof preset)} className="w-40">
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </Select>
-          <Button variant="secondary" onClick={() => void report.refetch()}>
-            Generate report
-          </Button>
-          <Button variant="secondary" onClick={exportPdf} disabled={!report.data}>
-            PDF
-          </Button>
-          <Button variant="secondary" onClick={exportCsv} disabled={!report.data}>
-            CSV
-          </Button>
-          <Button variant="ghost" onClick={() => window.print()}>
-            Print
-          </Button>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Reports</h1>
+        <p className="mt-1 text-sm text-slate-400">Generate manager PDFs and download previously created files.</p>
       </div>
 
-      {report.isLoading ? (
-        <Skeleton className="h-64" />
-      ) : report.isError ? (
-        <ErrorState message={report.error.message} onRetry={() => void report.refetch()} />
-      ) : !report.data || report.data.analytics.totalConversations === 0 ? (
-        <EmptyState title="No report data" hint="Pick a range that contains recordings, then generate again." />
+      <Card>
+        <CardHeader>
+          <CardTitle>Generate a PDF</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-3">
+            <Select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+              <option value="store">Store</option>
+              <option value="salesman">Salesman</option>
+              <option value="conversation">Conversation</option>
+            </Select>
+            <Select value={preset} onChange={(e) => setPreset(e.target.value as typeof preset)}>
+              <option value="today">Today</option>
+              <option value="week">This week</option>
+              <option value="month">This month</option>
+              <option value="custom">Custom</option>
+            </Select>
+            {kind === "salesman" ? (
+              <Select value={salesmanId} onChange={(e) => setSalesmanId(e.target.value)}>
+                <option value="">Select salesman</option>
+                {(salesmen.data ?? []).map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
+            {kind === "conversation" ? (
+              <Input placeholder="Conversation UUID" value={conversationId} onChange={(e) => setConversationId(e.target.value)} />
+            ) : null}
+          </div>
+          {preset === "custom" ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+              <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+            </div>
+          ) : null}
+          <Button onClick={() => generate.mutate()} disabled={generate.isPending}>
+            {generate.isPending ? "Generating…" : "Generate report"}
+          </Button>
+          {generate.isError ? <p className="text-sm text-red-300">{generate.error.message}</p> : null}
+          {ready ? (
+            <div className="flex flex-wrap gap-2">
+              <a href={ready} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center rounded-lg bg-emerald-500 px-4 text-sm font-medium text-slate-950">
+                Download
+              </a>
+              <Button variant="secondary" onClick={() => setPreview(ready)}>
+                Preview
+              </Button>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {reports.isLoading ? (
+        <Skeleton className="h-48" />
+      ) : reports.isError ? (
+        <ErrorState message={reports.error.message} onRetry={() => void reports.refetch()} />
+      ) : !reports.data?.length ? (
+        <EmptyState title="No generated reports" hint="Create a store, salesman, or conversation PDF to see it here." />
       ) : (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Card>
-              <CardContent>
-                <p className="text-xs uppercase text-slate-400">Conversations</p>
-                <p className="mt-2 text-2xl font-semibold">{report.data.analytics.totalConversations}</p>
+        <div className="grid gap-3 md:grid-cols-2">
+          {reports.data.map((item) => (
+            <Card key={item.id}>
+              <CardContent className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium capitalize">{item.report_type} report</p>
+                  <p className="text-xs text-slate-500">{formatDateTime(item.generated_at)}</p>
+                  <p className="text-xs text-slate-500">{item.file_name}</p>
+                </div>
+                <div className="flex gap-2">
+                  {item.file_url ? (
+                    <>
+                      <Button variant="secondary" size="sm" onClick={() => setPreview(item.file_url)}>
+                        Preview
+                      </Button>
+                      <a href={item.file_url} className="inline-flex h-9 items-center rounded-lg border border-slate-700 px-3 text-sm">
+                        Download
+                      </a>
+                    </>
+                  ) : null}
+                </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent>
-                <p className="text-xs uppercase text-slate-400">Analyzed</p>
-                <p className="mt-2 text-2xl font-semibold">{Math.round(report.data.analytics.analyzedPercentage)}%</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent>
-                <p className="text-xs uppercase text-slate-400">High intent</p>
-                <p className="mt-2 text-2xl font-semibold">{report.data.analytics.highIntentCount}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent>
-                <p className="text-xs uppercase text-slate-400">Avg duration</p>
-                <p className="mt-2 text-2xl font-semibold">{formatDuration(report.data.analytics.averageDuration)}</p>
-              </CardContent>
-            </Card>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Top objections</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {report.data.analytics.objections.length ? (
-                  report.data.analytics.objections.map((item) => (
-                    <p key={item.name} className="flex justify-between text-sm">
-                      <span>{item.name}</span>
-                      <span className="text-slate-400">{item.value}</span>
-                    </p>
-                  ))
-                ) : (
-                  <p className="text-sm text-slate-400">None in this range.</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Sentiment trend</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {report.data.analytics.sentiment.map((item) => (
-                  <p key={item.name} className="flex justify-between text-sm capitalize">
-                    <span>{item.name}</span>
-                    <span>{item.value}</span>
-                  </p>
-                ))}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Purchase intent</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {report.data.analytics.intent.map((item) => (
-                  <p key={item.name} className="flex justify-between text-sm capitalize">
-                    <span>{item.name}</span>
-                    <span>{item.value}</span>
-                  </p>
-                ))}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Conversations in range</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {report.data.conversations.slice(0, 8).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
-                    <span>{formatDateTime(item.recorded_at)}</span>
-                    <SentimentBadge sentiment={item.analysis?.sentiment} />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </>
+          ))}
+        </div>
       )}
+
+      {preview ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-950/80 p-4">
+          <div className="flex h-[80vh] w-full max-w-4xl flex-col rounded-xl border border-slate-800 bg-slate-900">
+            <div className="flex items-center justify-between px-4 py-3">
+              <p className="text-sm font-medium">PDF preview</p>
+              <div className="flex gap-2">
+                <a href={preview} className="text-sm text-emerald-400">
+                  Download
+                </a>
+                <Button variant="ghost" size="sm" onClick={() => setPreview(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+            <iframe title="Report preview" src={preview} className="min-h-0 flex-1 rounded-b-xl bg-white" />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

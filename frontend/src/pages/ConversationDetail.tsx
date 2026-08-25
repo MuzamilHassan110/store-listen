@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Frown, Meh, Pause, Play, RefreshCw, Smile } from "lucide-react";
-import { detectConversationLead, fetchConversationAnalysis, retryAnalysis, scoreConversation } from "../services/api";
+import { detectConversationLead, fetchConversationAnalysis, generateConversationPdf, retryAnalysis, scoreConversation } from "../services/api";
 import { formatDateTime, formatDuration } from "../lib/format";
 import { IntentBadge, SentimentBadge, StatusBadge } from "../components/conversation/Badges";
 import { ScoreBar } from "../components/conversation/ScoreBar";
@@ -44,6 +44,9 @@ export default function ConversationDetail() {
       void queryClient.invalidateQueries({ queryKey: ["conversations"] });
       void queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
     },
+  });
+  const pdf = useMutation({
+    mutationFn: () => generateConversationPdf(id),
   });
   const detectLead = useMutation({
     mutationFn: () => detectConversationLead(id),
@@ -124,6 +127,9 @@ export default function ConversationDetail() {
               {detectLead.isPending ? "Detecting…" : "Detect lead"}
             </Button>
           ) : null}
+          <Button variant="secondary" onClick={() => pdf.mutate()} disabled={pdf.isPending}>
+            {pdf.isPending ? "Building PDF…" : "PDF report"}
+          </Button>
           {canRetry ? (
             <Button onClick={() => retry.mutate()} disabled={retry.isPending}>
               <RefreshCw className="h-4 w-4" />
@@ -135,6 +141,12 @@ export default function ConversationDetail() {
       {retry.isError ? <p className="text-sm text-red-300">{retry.error.message}</p> : null}
       {score.isError ? <p className="text-sm text-red-300">{score.error.message}</p> : null}
       {detectLead.isError ? <p className="text-sm text-red-300">{detectLead.error.message}</p> : null}
+      {pdf.isError ? <p className="text-sm text-red-300">{pdf.error.message}</p> : null}
+      {pdf.data?.file_url ? (
+        <a href={pdf.data.file_url} className="text-sm text-emerald-400">
+          Download conversation PDF
+        </a>
+      ) : null}
       {detectLead.isSuccess ? (
         <p className="text-sm text-emerald-300">
           {detectLead.data ? "Follow-up created from this conversation." : "No lead met the intent/sentiment rules."}

@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, CalendarClock, FileText, LayoutDashboard, ListChecks, LogOut, Menu, MessageSquare, Trophy, Users, X } from "lucide-react";
+import { BarChart3, CalendarClock, FileText, LayoutDashboard, ListChecks, LogOut, Menu, MessageSquare, Settings, Trophy, Users, X } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../../lib/auth";
 import { Notifications } from "../Notifications";
@@ -14,6 +14,7 @@ const LINKS = [
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/rules", label: "Rules", icon: ListChecks },
   { to: "/reports", label: "Reports", icon: FileText },
+  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function AppLayout() {

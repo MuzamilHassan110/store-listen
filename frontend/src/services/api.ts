@@ -11,6 +11,7 @@ import type {
   Customer,
   CustomerDetail,
   DateRange,
+  ExportFile,
   FollowUp,
   FollowUpPriority,
   FollowUpStatus,
@@ -18,8 +19,11 @@ import type {
   Paginated,
   PurchaseIntent,
   Report,
+  RetentionStatus,
   RuleResult,
   SalesmanPerformance,
+  ScheduledReport,
+  StoredReport,
   Sentiment,
   Transcript,
   TranscriptSegment,
@@ -440,6 +444,47 @@ export async function fetchAnalytics(dateRange?: DateRange): Promise<Analytics> 
       .map(([name, value]) => ({ name, value })),
     languages: countBy(conversations.map((item) => item.language || item.analysis?.language || "unknown").map(String)),
     recent: conversations.slice(0, 5),
+    peakHours: Array.from({ length: 12 }, (_, index) => {
+      const hour = index * 2;
+      const value = conversations.filter((item) => parseISO(item.recorded_at).getHours() >= hour && parseISO(item.recorded_at).getHours() < hour + 2).length;
+      return { name: `${hour}:00`, value };
+    }),
+    objectionTrend: [...perDayMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date]) => ({
+        date,
+        count: conversations
+          .filter((item) => format(parseISO(item.recorded_at), "yyyy-MM-dd") === date)
+          .reduce((sum, item) => sum + (item.analysis?.objections.length ?? 0), 0),
+      })),
+    products: countBy(
+      conversations
+        .map((item) => item.analysis?.key_points?.[0])
+        .filter((item): item is string => Boolean(item))
+        .map((item) => item.slice(0, 24)),
+    ).slice(0, 8),
+    funnel: [
+      { name: "Recorded", value: conversations.length },
+      { name: "Analyzed", value: analyzed.length },
+      { name: "High intent", value: conversations.filter((item) => item.analysis?.purchase_intent === "high").length },
+      {
+        name: "High score",
+        value: conversations.filter((item) => (item.analysis?.overall_score ?? 0) >= 80).length,
+      },
+    ],
+    salesmanTrend: conversations
+      .filter((item) => item.salesman_name && item.analysis?.overall_score != null)
+      .reduce<Array<{ name: string; value: number; count: number }>>((list, item) => {
+        const existing = list.find((row) => row.name === item.salesman_name);
+        if (existing) {
+          existing.value += item.analysis?.overall_score ?? 0;
+          existing.count += 1;
+        } else {
+          list.push({ name: item.salesman_name ?? "Salesman", value: item.analysis?.overall_score ?? 0, count: 1 });
+        }
+        return list;
+      }, [])
+      .map((row) => ({ name: row.name, value: Math.round(row.value / row.count) })),
   };
 }
 
@@ -588,4 +633,63 @@ export async function markAllNotificationsRead(): Promise<{ count: number }> {
 
 export async function deleteNotification(id: string): Promise<{ id: string }> {
   return apiJson<{ id: string }>(`/api/notifications/${id}`, { method: "DELETE" });
+}
+
+export async function fetchStoredReports(): Promise<StoredReport[]> {
+  return apiJson<StoredReport[]>("/api/reports");
+}
+
+export async function generateConversationPdf(id: string): Promise<StoredReport> {
+  return apiJson<StoredReport>(`/api/reports/conversation/${id}`);
+}
+
+export async function generateSalesmanPdf(id: string, start: string, end: string): Promise<StoredReport> {
+  return apiJson<StoredReport>(`/api/reports/salesman/${id}?start_date=${start}&end_date=${end}`);
+}
+
+export async function generateStorePdf(start: string, end: string, period?: string): Promise<StoredReport> {
+  const extra = period ? `&period=${period}` : "";
+  return apiJson<StoredReport>(`/api/reports/store?start_date=${start}&end_date=${end}${extra}`);
+}
+
+export async function fetchSchedules(): Promise<ScheduledReport[]> {
+  return apiJson<ScheduledReport[]>("/api/reports/schedules");
+}
+
+export async function saveSchedule(input: Partial<ScheduledReport> & { report_type: string }): Promise<ScheduledReport> {
+  return apiJson<ScheduledReport>("/api/reports/schedules", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function exportConversationsCsv(): Promise<ExportFile> {
+  return apiJson<ExportFile>("/api/export/conversations");
+}
+
+export async function exportSalesmenCsv(): Promise<ExportFile> {
+  return apiJson<ExportFile>("/api/export/salesmen");
+}
+
+export async function exportFollowUpsCsv(): Promise<ExportFile> {
+  return apiJson<ExportFile>("/api/export/followups");
+}
+
+export async function exportCustomersCsv(): Promise<ExportFile> {
+  return apiJson<ExportFile>("/api/export/customers");
+}
+
+export async function fetchRetentionStatus(): Promise<RetentionStatus> {
+  return apiJson<RetentionStatus>("/api/retention/status");
+}
+
+export async function saveRetentionDays(days: number): Promise<{ retention_days: number }> {
+  return apiJson<{ retention_days: number }>("/api/retention/settings", {
+    method: "PUT",
+    body: JSON.stringify({ retention_days: days }),
+  });
+}
+
+export async function runRetentionCleanup(days?: number): Promise<{ archived: number }> {
+  return apiJson<{ archived: number }>("/api/retention/cleanup", {
+    method: "POST",
+    body: JSON.stringify({ days }),
+  });
 }

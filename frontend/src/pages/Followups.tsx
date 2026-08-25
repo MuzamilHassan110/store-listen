@@ -11,7 +11,9 @@ import {
   fetchSalesmen,
   snoozeFollowUp,
   suggestFollowUpMessage,
+  exportFollowUpsCsv,
 } from "../services/api";
+import { ExportMenu } from "../components/ExportMenu";
 import type { FollowUpPriority, FollowUpStatus } from "../types/conversation";
 import { formatDueLabel } from "../lib/format";
 import { FollowUpStatusBadge, PriorityBadge } from "../components/conversation/Badges";
@@ -77,7 +79,10 @@ export default function Followups() {
           <h1 className="text-2xl font-semibold">Follow-ups</h1>
           <p className="mt-1 text-sm text-slate-400">Leads detected from conversations, plus anything you add by hand.</p>
         </div>
-        <Button onClick={() => setOpen(true)}>Create follow-up</Button>
+        <div className="flex gap-2">
+          <ExportMenu onExport={exportFollowUpsCsv} />
+          <Button onClick={() => setOpen(true)}>Create follow-up</Button>
+        </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">

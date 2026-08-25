@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { fetchCustomers } from "../services/api";
+import { exportCustomersCsv, fetchCustomers } from "../services/api";
+import { ExportMenu } from "../components/ExportMenu";
 import { formatDateTime } from "../lib/format";
 import { Input } from "../components/ui/input";
 import { Skeleton } from "../components/ui/skeleton";
@@ -17,9 +18,12 @@ export default function Customers() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Customers</h1>
-        <p className="mt-1 text-sm text-slate-400">People captured from store conversations and follow-ups.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Customers</h1>
+          <p className="mt-1 text-sm text-slate-400">People captured from store conversations and follow-ups.</p>
+        </div>
+        <ExportMenu onExport={exportCustomersCsv} />
       </div>
       <Input placeholder="Search name or phone" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-md" />
       {list.isLoading ? (

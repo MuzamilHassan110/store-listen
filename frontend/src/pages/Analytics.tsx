@@ -152,6 +152,96 @@ export default function Analytics() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+          <Card>
+          <CardHeader>
+            <CardTitle>Objection trend</CardTitle>
+          </CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data.objectionTrend}>
+                <CartesianGrid stroke="#1e293b" />
+                <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} />
+                <YAxis allowDecimals={false} stroke="#94a3b8" />
+                <Tooltip />
+                <Line type="monotone" dataKey="count" stroke="#f87171" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Product interest</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-2">
+            {data.products.length ? (
+              data.products.map((item) => (
+                <div key={item.name} className="rounded-lg bg-slate-950 px-3 py-2 text-sm">
+                  <p className="truncate">{item.name}</p>
+                  <p className="text-slate-400">{item.value}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-slate-400">No product keywords yet.</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Salesman scores</CardTitle>
+          </CardHeader>
+          <CardContent className="h-72">
+            {data.salesmanTrend.length ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.salesmanTrend}>
+                  <CartesianGrid stroke="#1e293b" />
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} />
+                  <YAxis domain={[0, 100]} stroke="#94a3b8" />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#34d399" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-slate-400">Scores appear after conversations are scored.</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Peak hours</CardTitle>
+          </CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data.peakHours}>
+                <CartesianGrid stroke="#1e293b" />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} />
+                <YAxis allowDecimals={false} stroke="#94a3b8" />
+                <Tooltip />
+                <Bar dataKey="value" fill="#60a5fa" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Conversion funnel</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data.funnel.map((item) => (
+              <div key={item.name}>
+                <div className="mb-1 flex justify-between text-sm">
+                  <span>{item.name}</span>
+                  <span className="text-slate-400">{item.value}</span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-800">
+                  <div
+                    className="h-full rounded-full bg-emerald-500"
+                    style={{ width: `${data.totalConversations ? (item.value / data.totalConversations) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>Recent conversations</CardTitle>

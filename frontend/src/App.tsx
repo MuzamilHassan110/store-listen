@@ -15,6 +15,7 @@ import Login from "./pages/Login";
 import Reports from "./pages/Reports";
 import Rules from "./pages/Rules";
 import SalesmanDetail from "./pages/SalesmanDetail";
+import Settings from "./pages/Settings";
 
 function ProtectedLayout() {
   const { session, loading } = useAuth();
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/salesmen/:id" element={<SalesmanDetail />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/Rules" element={<Rules />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>
   );

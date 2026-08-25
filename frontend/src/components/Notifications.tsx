@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 function destination(metadata?: Record<string, unknown>, type?: string): string {
   const followUpId = metadata?.follow_up_id ? String(metadata.follow_up_id) : "";
   const conversationId = metadata?.conversation_id ? String(metadata.conversation_id) : "";
+  if (type === "report_ready") return "/reports";
   if (type === "follow_up_due" || followUpId) return "/followups";
   if (conversationId) return `/conversations/${conversationId}`;
   if (type === "high_intent") return "/followups";

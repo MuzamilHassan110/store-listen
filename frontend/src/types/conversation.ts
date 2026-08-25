@@ -156,6 +156,11 @@ export interface Analytics {
   objections: Array<{ name: string; value: number }>;
   languages: Array<{ name: string; value: number }>;
   recent: Conversation[];
+  peakHours: Array<{ name: string; value: number }>;
+  objectionTrend: Array<{ date: string; count: number }>;
+  products: Array<{ name: string; value: number }>;
+  funnel: Array<{ name: string; value: number }>;
+  salesmanTrend: Array<{ name: string; value: number }>;
 }
 
 export interface Report {
@@ -219,6 +224,39 @@ export interface CustomerDetail extends Customer {
     status?: string;
     language?: string;
   }>;
+}
+
+export interface StoredReport {
+  id: string;
+  organization_id: string;
+  report_type: "conversation" | "salesman" | "store" | "daily" | "weekly" | "monthly" | string;
+  file_url: string | null;
+  file_name: string | null;
+  generated_at: string;
+  date_range?: { start: string; end: string } | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ScheduledReport {
+  id: string;
+  report_type: string;
+  recipient_email?: string | null;
+  is_active: boolean;
+  last_sent_at?: string | null;
+}
+
+export interface RetentionStatus {
+  conversation_count: number;
+  recordings_count: number;
+  archived_count: number;
+  oldest_conversation: string | null;
+  retention_days: number;
+  next_cleanup_date: string | null;
+}
+
+export interface ExportFile {
+  filename: string;
+  csv: string;
 }
 
 export interface AppNotification {

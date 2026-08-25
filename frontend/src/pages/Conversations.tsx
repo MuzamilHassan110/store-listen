@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { fetchConversations, fetchSalesmen } from "../services/api";
+import { exportConversationsCsv, fetchConversations, fetchSalesmen } from "../services/api";
+import { ExportMenu } from "../components/ExportMenu";
 import type { ConversationFilters, ConversationStatus, Sentiment } from "../types/conversation";
 import { formatDateTime, formatDuration } from "../lib/format";
 import { IntentBadge, SentimentBadge, StatusBadge } from "../components/conversation/Badges";
@@ -43,9 +44,12 @@ export default function Conversations() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Conversations</h1>
-        <p className="mt-1 text-sm text-slate-400">Search, filter, and open a recording for AI analysis.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Conversations</h1>
+          <p className="mt-1 text-sm text-slate-400">Search, filter, and open a recording for AI analysis.</p>
+        </div>
+        <ExportMenu onExport={exportConversationsCsv} />
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">

@@ -69,3 +69,17 @@ describe("follow-up, customer, and notification routes", () => {
     expect(notifications.status).toBe(401);
   });
 });
+
+describe("report and export routes", () => {
+  it("rejects unauthenticated report and export requests", async () => {
+    const reports = await request(app).get("/api/reports");
+    const store = await request(app).get("/api/reports/store");
+    const csv = await request(app).get("/api/export/conversations");
+    const retention = await request(app).get("/api/retention/status");
+
+    expect(reports.status).toBe(401);
+    expect(store.status).toBe(401);
+    expect(csv.status).toBe(401);
+    expect(retention.status).toBe(401);
+  });
+});

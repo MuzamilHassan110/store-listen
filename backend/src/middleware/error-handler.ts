@@ -1,16 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
+import { sendError } from "../lib/api-response.js";
+import { HttpError } from "../lib/http-error.js";
 import { logger } from "../lib/logger.js";
 
-export class HttpError extends Error {
-  constructor(
-    public statusCode: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "HttpError";
-  }
-}
+export { HttpError } from "../lib/http-error.js";
 
 export function errorHandler(
   err: unknown,
@@ -19,15 +13,15 @@ export function errorHandler(
   _next: NextFunction,
 ): void {
   if (err instanceof ZodError) {
-    res.status(400).json({ error: "Validation failed", details: err.flatten() });
+    sendError(res, 400, "Validation failed.", "VALIDATION_ERROR");
     return;
   }
 
   if (err instanceof HttpError) {
-    res.status(err.statusCode).json({ error: err.message });
+    sendError(res, err.statusCode, err.message, err.code);
     return;
   }
 
   logger.error({ err }, "Unhandled error");
-  res.status(500).json({ error: "Internal server error" });
+  sendError(res, 500, "Internal server error.", "INTERNAL_ERROR");
 }

@@ -11,3 +11,13 @@ describe("GET /api/health", () => {
     expect(res.body.service).toBe("store-listien-api");
   });
 });
+
+describe("POST /api/recordings", () => {
+  it("rejects requests without a bearer token", async () => {
+    const res = await request(app).post("/api/recordings");
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("UNAUTHENTICATED");
+  });
+});

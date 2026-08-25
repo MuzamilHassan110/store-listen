@@ -1,0 +1,25 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 420px;
+  height: 640px;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: Segoe UI, system-ui, sans-serif;
+  background: #111111;
+  color: #f3f3f3;
+  user-select: none;
+}
+
+button {
+  font: inherit;
+}

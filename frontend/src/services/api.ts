@@ -5,11 +5,15 @@ import type {
   Conversation,
   ConversationAnalysis,
   ConversationFilters,
+  ConversationRule,
   ConversationStatus,
   DateRange,
+  LeaderboardEntry,
   Paginated,
   PurchaseIntent,
   Report,
+  RuleResult,
+  SalesmanPerformance,
   Sentiment,
   Transcript,
   TranscriptSegment,
@@ -31,10 +35,21 @@ function asIntent(value: unknown): PurchaseIntent {
 }
 
 function asStatus(value: unknown): ConversationStatus {
-  if (value === "queued" || value === "processing" || value === "analyzed" || value === "failed" || value === "recorded") {
+  if (
+    value === "queued" ||
+    value === "processing" ||
+    value === "analyzed" ||
+    value === "scored" ||
+    value === "failed" ||
+    value === "recorded"
+  ) {
     return value;
   }
   return "recorded";
+}
+
+function asOptionalNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function asStringArray(value: unknown): string[] {
@@ -57,6 +72,25 @@ function mapAnalysis(row: Record<string, unknown> | null | undefined): Conversat
     duration_spoken_seconds: typeof row.duration_spoken_seconds === "number" ? row.duration_spoken_seconds : null,
     ai_model: row.ai_model ? String(row.ai_model) : null,
     ai_processed_at: row.ai_processed_at ? String(row.ai_processed_at) : null,
+    overall_score: asOptionalNumber(row.overall_score),
+    communication_score: asOptionalNumber(row.communication_score),
+    product_knowledge_score: asOptionalNumber(row.product_knowledge_score),
+    objection_handling_score: asOptionalNumber(row.objection_handling_score),
+    closing_ability_score: asOptionalNumber(row.closing_ability_score),
+    rule_compliance_score: asOptionalNumber(row.rule_compliance_score),
+    strengths: asStringArray(row.strengths),
+    weaknesses: asStringArray(row.weaknesses),
+    recommendations: asStringArray(row.recommendations),
+  };
+}
+
+function mapRuleResult(row: Record<string, unknown>): RuleResult {
+  return {
+    rule_id: String(row.rule_id ?? row.id ?? ""),
+    rule_type: String(row.rule_type ?? "custom"),
+    description: row.description ? String(row.description) : undefined,
+    is_followed: Boolean(row.is_followed),
+    evidence: row.evidence ? String(row.evidence) : null,
   };
 }
 
@@ -103,6 +137,7 @@ function mapConversation(row: Record<string, unknown>): Conversation {
     analysis: mapAnalysis(analysis),
     transcript: mapTranscript(transcript),
     segments: asArray(row.segments ?? row.transcript_segments).map((item) => mapSegment(item as Record<string, unknown>)),
+    rule_results: asArray(row.rule_results).map((item) => mapRuleResult(item as Record<string, unknown>)),
   };
 }
 
@@ -123,6 +158,21 @@ async function withSignedRecording(conversation: Conversation): Promise<Conversa
     // Storage policies may block unsigned playback; the rest of the page still works.
   }
   return conversation;
+}
+
+async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${BACKEND_URL || ""}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(await authHeader()),
+      ...(init?.headers ?? {}),
+    },
+  });
+  const json = (await response.json().catch(() => null)) as { data?: T; message?: string } | null;
+  if (!response.ok) throw new Error(json?.message ?? "Request failed.");
+  if (json?.data === undefined) throw new Error(json?.message ?? "Empty response.");
+  return json.data;
 }
 
 async function authHeader(): Promise<HeadersInit> {
@@ -249,6 +299,7 @@ export async function fetchConversationAnalysis(id: string): Promise<Conversatio
           transcript?: Record<string, unknown> | null;
           analysis?: Record<string, unknown> | null;
           segments?: Array<Record<string, unknown>>;
+          rule_results?: Array<Record<string, unknown>>;
         };
       };
       if (json.data?.conversation) {
@@ -258,6 +309,7 @@ export async function fetchConversationAnalysis(id: string): Promise<Conversatio
             transcripts: json.data.transcript ? [json.data.transcript] : [],
             conversation_analyses: json.data.analysis ? [json.data.analysis] : [],
             transcript_segments: json.data.segments ?? [],
+            rule_results: json.data.rule_results ?? [],
           }),
         );
       }
@@ -275,6 +327,23 @@ export async function fetchConversationAnalysis(id: string): Promise<Conversatio
       .eq("transcript_id", conversation.transcript.id)
       .order("start_time", { ascending: true });
     conversation.segments = (data ?? []).map((row) => mapSegment(row as Record<string, unknown>));
+  }
+  try {
+    const client = await requireClient();
+    const { data } = await client
+      .from("conversation_rule_results")
+      .select("rule_id, is_followed, evidence, conversation_rules (rule_type, description)")
+      .eq("conversation_id", conversation.id);
+    conversation.rule_results = (data ?? []).map((row) => {
+      const rule = asArray(row.conversation_rules)[0] as Record<string, unknown> | undefined;
+      return mapRuleResult({
+        ...row,
+        rule_type: rule?.rule_type,
+        description: rule?.description,
+      });
+    });
+  } catch {
+    conversation.rule_results = conversation.rule_results ?? [];
   }
   return withSignedRecording(conversation);
 }
@@ -323,7 +392,7 @@ export async function fetchAnalytics(dateRange?: DateRange): Promise<Analytics> 
 
   const conversations = (data ?? []).map((row) => mapConversation(row as Record<string, unknown>));
   const today = format(new Date(), "yyyy-MM-dd");
-  const analyzed = conversations.filter((item) => item.status === "analyzed");
+  const analyzed = conversations.filter((item) => item.status === "analyzed" || item.status === "scored");
   const pending = conversations.filter((item) =>
     item.status === "queued" || item.status === "processing" || item.status === "recorded" || item.status === "failed",
   );
@@ -379,4 +448,58 @@ export async function generateReport(dateRange: DateRange): Promise<Report> {
     analytics,
     conversations: list.data,
   };
+}
+
+export async function scoreConversation(id: string): Promise<Conversation> {
+  const bundle = await apiJson<{
+    conversation: Record<string, unknown>;
+    transcript?: Record<string, unknown> | null;
+    analysis?: Record<string, unknown> | null;
+    segments?: Array<Record<string, unknown>>;
+    rule_results?: Array<Record<string, unknown>>;
+  }>(`/api/conversations/${id}/score`, { method: "POST" });
+  return mapConversation({
+    ...bundle.conversation,
+    transcripts: bundle.transcript ? [bundle.transcript] : [],
+    conversation_analyses: bundle.analysis ? [bundle.analysis] : [],
+    transcript_segments: bundle.segments ?? [],
+    rule_results: bundle.rule_results ?? [],
+  });
+}
+
+export async function fetchSalesmanPerformance(id: string): Promise<SalesmanPerformance> {
+  return apiJson<SalesmanPerformance>(`/api/salesmen/${id}/performance`);
+}
+
+export async function fetchLeaderboard(period: "week" | "month" | "all" = "all"): Promise<LeaderboardEntry[]> {
+  return apiJson<LeaderboardEntry[]>(`/api/salesmen/leaderboard?period=${period}`);
+}
+
+export async function fetchRules(): Promise<ConversationRule[]> {
+  return apiJson<ConversationRule[]>("/api/rules");
+}
+
+export async function createRule(input: Omit<ConversationRule, "id">): Promise<ConversationRule> {
+  return apiJson<ConversationRule>("/api/rules", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function updateRule(id: string, input: Partial<ConversationRule>): Promise<ConversationRule> {
+  return apiJson<ConversationRule>(`/api/rules/${id}`, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function deleteRule(id: string): Promise<ConversationRule> {
+  return apiJson<ConversationRule>(`/api/rules/${id}`, { method: "DELETE" });
+}
+
+export function testRuleAgainstText(keywords: string[], sample: string): { matched: boolean; evidence: string | null } {
+  const haystack = sample.toLowerCase();
+  for (const keyword of keywords) {
+    const needle = keyword.trim().toLowerCase();
+    if (!needle) continue;
+    const index = haystack.indexOf(needle);
+    if (index >= 0) {
+      return { matched: true, evidence: sample.slice(Math.max(0, index - 24), index + needle.length + 24).trim() };
+    }
+  }
+  return { matched: false, evidence: null };
 }

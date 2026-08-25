@@ -7,8 +7,11 @@ import Analytics from "./pages/Analytics";
 import ConversationDetail from "./pages/ConversationDetail";
 import Conversations from "./pages/Conversations";
 import Dashboard from "./pages/Dashboard";
+import Leaderboard from "./pages/Leaderboard";
 import Login from "./pages/Login";
 import Reports from "./pages/Reports";
+import Rules from "./pages/Rules";
+import SalesmanDetail from "./pages/SalesmanDetail";
 
 function ProtectedLayout() {
   const { session, loading } = useAuth();
@@ -35,6 +38,10 @@ export default function App() {
         <Route path="/conversations/:id" element={<ConversationDetail />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/salesmen/:id" element={<SalesmanDetail />} />
+        <Route path="/rules" element={<Rules />} />
+        <Route path="/Rules" element={<Rules />} />
       </Route>
     </Routes>
   );

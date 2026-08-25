@@ -39,3 +39,19 @@ describe("POST /api/conversations/:id/analyze", () => {
     expect(res.body.error.code).toBe("UNAUTHENTICATED");
   });
 });
+
+describe("salesman and rules routes", () => {
+  it("rejects unauthenticated performance, leaderboard, and rules requests", async () => {
+    const performance = await request(app).get("/api/salesmen/00000000-0000-0000-0000-000000000000/performance");
+    const leaderboard = await request(app).get("/api/salesmen/leaderboard");
+    const rules = await request(app).get("/api/rules");
+    const conversationRules = await request(app).get(
+      "/api/conversations/00000000-0000-0000-0000-000000000000/rules",
+    );
+
+    expect(performance.status).toBe(401);
+    expect(leaderboard.status).toBe(401);
+    expect(rules.status).toBe(401);
+    expect(conversationRules.status).toBe(401);
+  });
+});

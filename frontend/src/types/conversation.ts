@@ -1,4 +1,4 @@
-export type ConversationStatus = "recorded" | "queued" | "processing" | "analyzed" | "failed";
+export type ConversationStatus = "recorded" | "queued" | "processing" | "analyzed" | "scored" | "failed";
 export type Sentiment = "positive" | "negative" | "neutral";
 export type PurchaseIntent = "high" | "medium" | "low";
 
@@ -11,7 +11,35 @@ export interface Transcript {
   created_at?: string;
 }
 
-export interface ConversationAnalysis {
+export interface ScoreBreakdown {
+  overall_score: number;
+  communication_score: number;
+  product_knowledge_score: number;
+  objection_handling_score: number;
+  closing_ability_score: number;
+  rule_compliance_score: number;
+  strengths: string[];
+  weaknesses: string[];
+  recommendations: string[];
+}
+
+export interface ConversationRule {
+  id: string;
+  rule_type: string;
+  description: string;
+  keywords: string[];
+  is_active: boolean;
+}
+
+export interface RuleResult {
+  rule_id: string;
+  rule_type: string;
+  description?: string;
+  is_followed: boolean;
+  evidence?: string | null;
+}
+
+export interface ConversationAnalysis extends Partial<ScoreBreakdown> {
   id: string;
   conversation_id: string;
   summary?: string | null;
@@ -51,6 +79,43 @@ export interface Conversation {
   transcript?: Transcript | null;
   analysis?: ConversationAnalysis | null;
   segments?: TranscriptSegment[];
+  rule_results?: RuleResult[];
+}
+
+export interface SalesmanPerformance {
+  salesman_id: string;
+  salesman_name: string;
+  total_conversations: number;
+  average_scores: {
+    overall: number;
+    communication: number;
+    product_knowledge: number;
+    objection_handling: number;
+    closing_ability: number;
+    rule_compliance: number;
+  };
+  trends: {
+    last_7_days: number[];
+    last_30_days: number[];
+  };
+  top_strengths: string[];
+  top_weaknesses: string[];
+  recent_conversations: Array<{
+    id: string;
+    recorded_at: string;
+    status: string;
+    overall_score: number | null;
+    duration_seconds: number;
+  }>;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  salesman_id: string;
+  salesman_name: string;
+  total_conversations: number;
+  average_score: number;
+  average_scores: SalesmanPerformance["average_scores"];
 }
 
 export interface ConversationFilters {

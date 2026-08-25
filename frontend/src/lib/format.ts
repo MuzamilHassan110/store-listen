@@ -28,6 +28,7 @@ export const STATUS_LABEL: Record<ConversationStatus, string> = {
   queued: "Queued",
   processing: "Processing",
   analyzed: "Analyzed",
+  scored: "Scored",
   failed: "Failed",
 };
 

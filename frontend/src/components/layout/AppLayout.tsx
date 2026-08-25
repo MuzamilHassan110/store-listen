@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, FileText, LayoutDashboard, LogOut, Menu, MessageSquare, X } from "lucide-react";
+import { BarChart3, FileText, LayoutDashboard, ListChecks, LogOut, Menu, MessageSquare, Trophy, X } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../../lib/auth";
 import { Button } from "../ui/button";
@@ -8,6 +8,8 @@ const LINKS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/conversations", label: "Conversations", icon: MessageSquare },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { to: "/rules", label: "Rules", icon: ListChecks },
   { to: "/reports", label: "Reports", icon: FileText },
 ];
 

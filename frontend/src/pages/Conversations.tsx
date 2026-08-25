@@ -72,6 +72,7 @@ export default function Conversations() {
           }
         >
           <option value="all">All statuses</option>
+          <option value="scored">Scored</option>
           <option value="analyzed">Analyzed</option>
           <option value="queued">Queued</option>
           <option value="processing">Processing</option>

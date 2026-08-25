@@ -4,7 +4,7 @@ import { Badge } from "../ui/badge";
 
 export function StatusBadge({ status }: { status: ConversationStatus }) {
   const tone =
-    status === "analyzed"
+    status === "analyzed" || status === "scored"
       ? "bg-emerald-500/15 text-emerald-300"
       : status === "failed"
         ? "bg-red-500/15 text-red-300"

@@ -2,9 +2,10 @@ import { useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Frown, Meh, Pause, Play, RefreshCw, Smile } from "lucide-react";
-import { fetchConversationAnalysis, retryAnalysis } from "../services/api";
+import { fetchConversationAnalysis, retryAnalysis, scoreConversation } from "../services/api";
 import { formatDateTime, formatDuration } from "../lib/format";
 import { IntentBadge, SentimentBadge, StatusBadge } from "../components/conversation/Badges";
+import { ScoreBar } from "../components/conversation/ScoreBar";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
@@ -34,6 +35,14 @@ export default function ConversationDetail() {
       void queryClient.invalidateQueries({ queryKey: ["conversation", id] });
       void queryClient.invalidateQueries({ queryKey: ["conversations"] });
       void queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    },
+  });
+  const score = useMutation({
+    mutationFn: () => scoreConversation(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["conversation", id] });
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      void queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
     },
   });
 
@@ -90,16 +99,29 @@ export default function ConversationDetail() {
             <StatusBadge status={conversation.status} />
             <span className="text-sm text-slate-400">{formatDuration(conversation.duration_seconds)}</span>
             <span className="text-sm uppercase text-slate-400">{conversation.language ?? "—"}</span>
+            {conversation.salesman_id ? (
+              <Link to={`/salesmen/${conversation.salesman_id}`} className="text-sm text-emerald-400">
+                {conversation.salesman_name ?? "Salesman"}
+              </Link>
+            ) : null}
           </div>
         </div>
-        {canRetry ? (
-          <Button onClick={() => retry.mutate()} disabled={retry.isPending}>
-            <RefreshCw className="h-4 w-4" />
-            {retry.isPending ? "Retrying…" : "Retry analysis"}
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {analysis && analysis.overall_score == null ? (
+            <Button variant="secondary" onClick={() => score.mutate()} disabled={score.isPending}>
+              {score.isPending ? "Scoring…" : "Compute scores"}
+            </Button>
+          ) : null}
+          {canRetry ? (
+            <Button onClick={() => retry.mutate()} disabled={retry.isPending}>
+              <RefreshCw className="h-4 w-4" />
+              {retry.isPending ? "Retrying…" : "Retry analysis"}
+            </Button>
+          ) : null}
+        </div>
       </div>
       {retry.isError ? <p className="text-sm text-red-300">{retry.error.message}</p> : null}
+      {score.isError ? <p className="text-sm text-red-300">{score.error.message}</p> : null}
 
       {conversation.recording_url ? (
         <Card>
@@ -219,6 +241,67 @@ export default function ConversationDetail() {
       ) : (
         <EmptyState title="No AI analysis yet" hint="Use Retry analysis after the recording is uploaded." />
       )}
+
+      {analysis?.overall_score != null ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Salesman scores</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-3xl font-semibold">{analysis.overall_score}</p>
+              <ScoreBar label="Communication" icon="💬" value={analysis.communication_score} />
+              <ScoreBar label="Product knowledge" icon="📦" value={analysis.product_knowledge_score} />
+              <ScoreBar label="Objection handling" icon="🛡️" value={analysis.objection_handling_score} />
+              <ScoreBar label="Closing ability" icon="🤝" value={analysis.closing_ability_score} />
+              <ScoreBar label="Rule compliance" icon="✅" value={analysis.rule_compliance_score} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Recommendations</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="text-xs uppercase text-slate-500">Strengths</p>
+                <p className="mt-1 text-sm">{(analysis.strengths ?? []).join(" · ") || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-slate-500">Weaknesses</p>
+                <p className="mt-1 text-sm">{(analysis.weaknesses ?? []).join(" · ") || "—"}</p>
+              </div>
+              {(analysis.recommendations ?? []).map((item) => (
+                <p key={item} className="rounded-lg bg-slate-950 px-3 py-2 text-sm text-slate-300">
+                  {item}
+                </p>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
+      {conversation.rule_results?.length ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Rule compliance</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {conversation.rule_results.map((result) => (
+              <div key={result.rule_id} className="rounded-lg bg-slate-950 px-3 py-2 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span>
+                    {result.is_followed ? "✅" : "❌"} {result.description || result.rule_type}
+                  </span>
+                  <span className={result.is_followed ? "text-emerald-300" : "text-red-300"}>
+                    {result.is_followed ? "Followed" : "Missed"}
+                  </span>
+                </div>
+                {result.evidence ? <p className="mt-1 text-xs text-slate-400">“{result.evidence}”</p> : null}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

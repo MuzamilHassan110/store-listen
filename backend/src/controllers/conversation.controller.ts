@@ -5,7 +5,9 @@ import { enqueueAndWait } from "../services/analysis-queue.js";
 import {
   getConversationBundle,
   loadAudioForConversation,
+  scoreExistingConversation,
 } from "../services/conversation.service.js";
+import { getConversationRuleResults } from "../services/rules.service.js";
 
 function routeId(value: string | string[] | undefined): string | undefined {
   return typeof value === "string" ? value : value?.[0];
@@ -93,6 +95,42 @@ export const retryConversationAnalysisHandler: RequestHandler = async (req, res,
       result.error?.message ?? "Analysis failed.",
       result.error?.code ?? "GEMINI_FAILED",
     );
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getConversationRulesHandler: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) {
+      sendError(res, 401, "Authentication required.", "UNAUTHENTICATED");
+      return;
+    }
+    const id = routeId(req.params.id);
+    if (!id) {
+      sendError(res, 400, "Conversation id is required.", "VALIDATION_ERROR");
+      return;
+    }
+    const results = await getConversationRuleResults(id, req.auth.organizationId);
+    sendSuccess(res, 200, "Rule results loaded.", results);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const scoreConversationHandler: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) {
+      sendError(res, 401, "Authentication required.", "UNAUTHENTICATED");
+      return;
+    }
+    const id = routeId(req.params.id);
+    if (!id) {
+      sendError(res, 400, "Conversation id is required.", "VALIDATION_ERROR");
+      return;
+    }
+    const bundle = await scoreExistingConversation(id, req.auth.organizationId);
+    sendSuccess(res, 200, "Conversation scored.", bundle);
   } catch (err) {
     next(err);
   }

@@ -19,10 +19,18 @@ import { meRouter } from "./me.routes.js";
 import { whatsappRouter } from "./whatsapp.routes.js";
 import { smsRouter } from "./sms.routes.js";
 import { communicationRouter } from "./communication.routes.js";
+import { authRouter } from "./auth.routes.js";
+import { auditRouter } from "./audit.routes.js";
+import { backupRouter } from "./backup.routes.js";
+import { auditMutations } from "../middleware/audit.js";
 
 export const router = Router();
 
+router.use(auditMutations);
 router.use(healthRouter);
+router.use("/auth", authRouter);
+router.use("/audit-logs", auditRouter);
+router.use("/backup", backupRouter);
 router.use("/me", meRouter);
 router.use("/sync", syncRouter);
 router.use("/stores", storeRouter);

@@ -18,6 +18,8 @@ export const ar: Messages = {
     notifications: "الإشعارات",
     salesmen: "البائعون",
     whatsapp: "واتساب",
+    security: "الأمان",
+    audit: "سجلات التدقيق",
   },
   pages: {
     dashboard: "لوحة التحكم",
@@ -49,6 +51,10 @@ export const ar: Messages = {
     notificationsHint: "التنبيهات مجمّعة حسب اليوم. اضغط لفتح الصفحة.",
     whatsapp: "واتساب",
     whatsappHint: "اربط واتساب وأدر القوالب وراجع الرسائل الصادرة.",
+    security: "الأمان",
+    securityHint: "المصادقة الثنائية والجلسات وكلمة المرور.",
+    audit: "سجلات التدقيق",
+    auditHint: "من غيّر ماذا، بما في ذلك التصدير والأمان.",
   },
   common: {
     retry: "إعادة المحاولة",
@@ -80,6 +86,13 @@ export const ar: Messages = {
     pending: "جارٍ تسجيل الدخول…",
     missingEnv: "أضف VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY إلى frontend/.env أولاً.",
     failed: "فشل تسجيل الدخول.",
+    twoFactorTitle: "أدخل رمز المصادقة",
+    otp: "رمز من 6 أرقام",
+    backupCode: "رمز احتياطي",
+    rememberDevice: "تذكر هذا الجهاز لمدة 30 يوماً",
+    useBackup: "استخدام رمز احتياطي",
+    useAuthenticator: "استخدام تطبيق المصادقة",
+    verify: "تحقق",
   },
   conversation: {
     back: "المحادثات",

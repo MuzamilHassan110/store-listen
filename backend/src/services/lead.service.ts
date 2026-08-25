@@ -5,6 +5,7 @@ import { logger } from "../lib/logger.js";
 import { getSupabase } from "../lib/supabase.js";
 import { logActivity } from "./activity.service.js";
 import { createNotification } from "./notification.service.js";
+import { encryptText, hashPhone } from "./encryption.service.js";
 import { queueFollowUpIfConsented, queueHighIntentAlert } from "./communication.service.js";
 
 export type ExtractedCustomer = {
@@ -128,12 +129,20 @@ export async function upsertCustomerFromVisit(input: {
   let existing = null as Record<string, unknown> | null;
 
   if (input.phone) {
-    const { data } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("organization_id", input.organizationId)
-      .eq("phone", input.phone)
-      .maybeSingle();
+    const hashed = hashPhone(input.phone);
+    const { data } = hashed
+      ? await supabase
+          .from("customers")
+          .select("*")
+          .eq("organization_id", input.organizationId)
+          .eq("phone_hash", hashed)
+          .maybeSingle()
+      : await supabase
+          .from("customers")
+          .select("*")
+          .eq("organization_id", input.organizationId)
+          .eq("phone", input.phone)
+          .maybeSingle();
     existing = data;
   }
   if (!existing && input.name) {
@@ -151,7 +160,8 @@ export async function upsertCustomerFromVisit(input: {
       .from("customers")
       .update({
         name: input.name || existing.name,
-        phone: input.phone || existing.phone,
+        phone: input.phone ? encryptText(input.phone) : existing.phone,
+        phone_hash: input.phone ? hashPhone(input.phone) : existing.phone_hash,
         last_visit_at: new Date().toISOString(),
         total_visits: Number(existing.total_visits ?? 1) + 1,
         preferred_language: input.language || existing.preferred_language,
@@ -175,7 +185,9 @@ export async function upsertCustomerFromVisit(input: {
     .insert({
       organization_id: input.organizationId,
       name: input.name,
-      phone: input.phone,
+      phone: encryptText(input.phone),
+      phone_hash: hashPhone(input.phone),
+      contacts_encrypted: Boolean(input.phone),
       last_visit_at: new Date().toISOString(),
       total_visits: 1,
       preferred_language: input.language,

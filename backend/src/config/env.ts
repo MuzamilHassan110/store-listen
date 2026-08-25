@@ -25,6 +25,9 @@ const envSchema = z.object({
   TWILIO_PHONE_NUMBER: z.string().optional(),
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
+  SUPABASE_ANON_KEY: z.string().optional(),
+  ENCRYPTION_KEY: z.string().optional(),
+  ENCRYPTION_IV: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

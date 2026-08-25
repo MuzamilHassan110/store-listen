@@ -18,6 +18,8 @@ export const ur: Messages = {
     notifications: "اطلاعات",
     salesmen: "سیلز مین",
     whatsapp: "واٹس ایپ",
+    security: "سیکیورٹی",
+    audit: "آڈٹ لاگز",
   },
   pages: {
     dashboard: "ڈیش بورڈ",
@@ -49,6 +51,10 @@ export const ur: Messages = {
     notificationsHint: "روزانہ کی اطلاعات۔ تفصیل کے لیے ٹیپ کریں۔",
     whatsapp: "واٹس ایپ",
     whatsappHint: "واٹس ایپ منسلک کریں، ٹیمپلیٹس منظم کریں، اور پیغامات دیکھیں۔",
+    security: "سیکیورٹی",
+    securityHint: "دو مرحلہ تصدیق، سیشنز، اور پاس ورڈ۔",
+    audit: "آڈٹ لاگز",
+    auditHint: "کون کیا بدلا، بشمول ایکسپورٹ اور سیکیورٹی۔",
   },
   common: {
     retry: "دوبارہ کوشش",
@@ -80,6 +86,13 @@ export const ur: Messages = {
     pending: "سائن ان ہو رہا ہے…",
     missingEnv: "پہلے frontend/.env میں VITE_SUPABASE_URL اور VITE_SUPABASE_ANON_KEY شامل کریں۔",
     failed: "سائن ان ناکام۔",
+    twoFactorTitle: "تصدیقی کوڈ درج کریں",
+    otp: "٦ ہندسوں کا کوڈ",
+    backupCode: "بیک اپ کوڈ",
+    rememberDevice: "اس ڈیوائس کو ٣٠ دن یاد رکھیں",
+    useBackup: "بیک اپ کوڈ استعمال کریں",
+    useAuthenticator: "Authenticator استعمال کریں",
+    verify: "تصدیق",
   },
   conversation: {
     back: "گفتگو",

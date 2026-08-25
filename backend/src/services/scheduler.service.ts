@@ -3,6 +3,7 @@ import { getSupabase } from "../lib/supabase.js";
 import { createNotification } from "./notification.service.js";
 import { generateDailyReport, generateMonthlyReport, generateWeeklyReport } from "./report.service.js";
 import { buildDailyReportVars, flushQueuedMessages, queueDailyReportMessage } from "./communication.service.js";
+import { runScheduledBackups } from "./backup.service.js";
 
 const HOUR_MS = 60 * 60 * 1000;
 let timer: NodeJS.Timeout | null = null;
@@ -74,6 +75,7 @@ export function startReportScheduler(): void {
   timer = setInterval(() => {
     void runScheduledReports();
     void flushQueuedMessages();
+    void runScheduledBackups();
   }, HOUR_MS);
   logger.info("Report scheduler started (hourly)");
 }

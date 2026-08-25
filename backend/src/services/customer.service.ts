@@ -1,6 +1,7 @@
 import { HttpError } from "../lib/http-error.js";
 import { logger } from "../lib/logger.js";
 import { getSupabase } from "../lib/supabase.js";
+import { decryptText, encryptText, hashPhone } from "./encryption.service.js";
 
 export type CustomerRow = {
   id: string;
@@ -46,8 +47,8 @@ function mapCustomer(row: Record<string, unknown>, latestScore?: number | null):
     id: String(row.id),
     organization_id: String(row.organization_id),
     name: row.name ? String(row.name) : null,
-    phone: row.phone ? String(row.phone) : null,
-    email: row.email ? String(row.email) : null,
+    phone: decryptText(row.phone ? String(row.phone) : null),
+    email: decryptText(row.email ? String(row.email) : null),
     total_visits: visits,
     total_purchases: purchases,
     last_visit_at: row.last_visit_at ? String(row.last_visit_at) : null,
@@ -55,8 +56,8 @@ function mapCustomer(row: Record<string, unknown>, latestScore?: number | null):
     notes: row.notes ? String(row.notes) : null,
     purchase_probability: purchaseProbability(visits, purchases, latestScore),
     created_at: String(row.created_at ?? new Date().toISOString()),
-    whatsapp_number: row.whatsapp_number ? String(row.whatsapp_number) : null,
-    sms_number: row.sms_number ? String(row.sms_number) : null,
+    whatsapp_number: decryptText(row.whatsapp_number ? String(row.whatsapp_number) : null),
+    sms_number: decryptText(row.sms_number ? String(row.sms_number) : null),
     preferred_contact: row.preferred_contact === "sms" ? "sms" : "whatsapp",
     contact_consent: Boolean(row.contact_consent),
   };
@@ -167,9 +168,17 @@ export async function updateCustomer(
     phone: string | null;
   }>,
 ): Promise<CustomerRow> {
+  const patch: Record<string, unknown> = { ...input };
+  if (input.phone !== undefined) {
+    patch.phone = encryptText(input.phone);
+    patch.phone_hash = hashPhone(input.phone);
+    patch.contacts_encrypted = true;
+  }
+  if (input.whatsapp_number !== undefined) patch.whatsapp_number = encryptText(input.whatsapp_number);
+  if (input.sms_number !== undefined) patch.sms_number = encryptText(input.sms_number);
   const { data, error } = await getSupabase()
     .from("customers")
-    .update(input)
+    .update(patch)
     .eq("id", customerId)
     .eq("organization_id", organizationId)
     .select()

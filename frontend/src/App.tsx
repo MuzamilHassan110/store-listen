@@ -22,9 +22,11 @@ import StoreComparison from "./pages/StoreComparison";
 import Devices from "./pages/Devices";
 import NotificationsPage from "./pages/NotificationsPage";
 import WhatsAppSettings from "./pages/WhatsAppSettings";
+import SecuritySettings from "./pages/SecuritySettings";
+import AuditLogs from "./pages/AuditLogs";
 
 function ProtectedLayout() {
-  const { session, loading } = useAuth();
+  const { session, loading, twoFactorRequired } = useAuth();
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 p-8">
@@ -32,7 +34,7 @@ function ProtectedLayout() {
       </div>
     );
   }
-  if (isSupabaseConfigured && !session) {
+  if (isSupabaseConfigured && (!session || twoFactorRequired)) {
     return <Navigate to="/login" replace />;
   }
   return <AppLayout />;
@@ -61,6 +63,8 @@ export default function App() {
         <Route path="/Rules" element={<Rules />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/whatsapp" element={<WhatsAppSettings />} />
+        <Route path="/settings/security" element={<SecuritySettings />} />
+        <Route path="/audit-logs" element={<AuditLogs />} />
         <Route path="/notifications" element={<NotificationsPage />} />
       </Route>
     </Routes>

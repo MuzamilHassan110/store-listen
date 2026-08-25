@@ -135,6 +135,22 @@ describe("whatsapp, sms, and communication routes", () => {
   });
 });
 
+describe("security routes", () => {
+  it("rejects unauthenticated 2FA, audit, backup, and session requests", async () => {
+    const setup = await request(app).post("/api/auth/2fa/setup");
+    const status = await request(app).get("/api/auth/2fa/status");
+    const audit = await request(app).get("/api/audit-logs");
+    const backup = await request(app).get("/api/backup/status");
+    const sessions = await request(app).get("/api/auth/sessions");
+
+    expect(setup.status).toBe(401);
+    expect(status.status).toBe(401);
+    expect(audit.status).toBe(401);
+    expect(backup.status).toBe(401);
+    expect(sessions.status).toBe(401);
+  });
+});
+
 describe("report and export routes", () => {
   it("rejects unauthenticated report and export requests", async () => {
     const reports = await request(app).get("/api/reports");

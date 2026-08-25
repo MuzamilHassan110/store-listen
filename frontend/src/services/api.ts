@@ -31,6 +31,9 @@ import type {
   CommunicationSettings,
   WhatsAppStatus,
   OutboundMessage,
+  AuditLog,
+  TwoFactorSetup,
+  AuthSession,
 } from "../types/conversation";
 import type { ActivityLog, Device, SessionProfile, Store, StoreComparisonRow, StoreOverview } from "../types/store";
 
@@ -848,4 +851,72 @@ export async function saveCommunicationSettings(
     method: "PUT",
     body: JSON.stringify(input),
   });
+}
+
+export async function fetchTwoFactorStatus(deviceToken?: string | null): Promise<{ enabled: boolean; trusted: boolean }> {
+  const query = deviceToken ? `?device_token=${encodeURIComponent(deviceToken)}` : "";
+  return apiJson(`/api/auth/2fa/status${query}`);
+}
+
+export async function setupTwoFactor(): Promise<TwoFactorSetup> {
+  return apiJson<TwoFactorSetup>("/api/auth/2fa/setup", { method: "POST" });
+}
+
+export async function verifyTwoFactorSetup(code: string): Promise<{ enabled: boolean }> {
+  return apiJson("/api/auth/2fa/verify", { method: "POST", body: JSON.stringify({ code }) });
+}
+
+export async function disableTwoFactor(code: string): Promise<{ enabled: boolean }> {
+  return apiJson("/api/auth/2fa/disable", { method: "POST", body: JSON.stringify({ code }) });
+}
+
+export async function confirmTwoFactor(code: string, rememberDevice: boolean): Promise<{ device_token?: string | null }> {
+  return apiJson("/api/auth/2fa/confirm", {
+    method: "POST",
+    body: JSON.stringify({ code, remember_device: rememberDevice }),
+  });
+}
+
+export async function loginWithPassword(email: string, password: string, deviceToken?: string | null) {
+  return apiJson<{ status: string; temp_token?: string; access_token?: string; refresh_token?: string }>(
+    "/api/auth/login",
+    { method: "POST", body: JSON.stringify({ email, password, device_token: deviceToken }) },
+  );
+}
+
+export async function completeTwoFactorLogin(tempToken: string, code: string, remember: boolean, backup = false) {
+  return apiJson<{ access_token: string; refresh_token: string | null; device_token?: string | null }>(
+    backup ? "/api/auth/2fa/backup" : "/api/auth/2fa/login",
+    { method: "POST", body: JSON.stringify({ temp_token: tempToken, code, remember_device: remember }) },
+  );
+}
+
+export async function fetchAuditLogs(filters: { action?: string; search?: string; from?: string; to?: string } = {}) {
+  const params = new URLSearchParams();
+  if (filters.action) params.set("action", filters.action);
+  if (filters.search) params.set("search", filters.search);
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  const query = params.toString();
+  return apiJson<AuditLog[]>(`/api/audit-logs${query ? `?${query}` : ""}`);
+}
+
+export async function exportAuditLogs(): Promise<ExportFile> {
+  return apiJson<ExportFile>("/api/audit-logs/export");
+}
+
+export async function fetchSessions(): Promise<AuthSession[]> {
+  return apiJson<AuthSession[]>("/api/auth/sessions");
+}
+
+export async function revokeSession(id: string): Promise<{ id: string }> {
+  return apiJson(`/api/auth/sessions/${id}`, { method: "DELETE" });
+}
+
+export async function revokeAllSessions(): Promise<{ count: number }> {
+  return apiJson("/api/auth/sessions", { method: "DELETE" });
+}
+
+export async function changePassword(password: string): Promise<{ updated: boolean }> {
+  return apiJson("/api/auth/password", { method: "POST", body: JSON.stringify({ password }) });
 }

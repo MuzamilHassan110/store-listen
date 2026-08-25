@@ -8,8 +8,10 @@ import {
   upsertScheduleHandler,
 } from "../controllers/report.controller.js";
 import { requireAuth } from "../middleware/auth.js";
+import { reportRateLimit } from "../middleware/rate-limit.js";
 
 export const reportRouter = Router();
+reportRouter.use(reportRateLimit);
 
 reportRouter.get("/", requireAuth, listReportsHandler);
 reportRouter.get("/conversation/:id", requireAuth, conversationReportHandler);

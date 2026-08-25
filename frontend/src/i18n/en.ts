@@ -16,6 +16,8 @@ export const en = {
     notifications: "Notifications",
     salesmen: "Salesmen",
     whatsapp: "WhatsApp",
+    security: "Security",
+    audit: "Audit logs",
   },
   pages: {
     dashboard: "Dashboard",
@@ -47,6 +49,10 @@ export const en = {
     notificationsHint: "Alerts grouped by day. Tap one to open the related page.",
     whatsapp: "WhatsApp",
     whatsappHint: "Connect WhatsApp Web, manage templates, and review outbound messages.",
+    security: "Security",
+    securityHint: "Two-factor authentication, sessions, and password.",
+    audit: "Audit logs",
+    auditHint: "Who changed what, including exports and security events.",
   },
   common: {
     retry: "Retry",
@@ -78,6 +84,13 @@ export const en = {
     pending: "Signing in…",
     missingEnv: "Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to frontend/.env first.",
     failed: "Sign in failed.",
+    twoFactorTitle: "Enter your authenticator code",
+    otp: "6-digit code",
+    backupCode: "Backup code",
+    rememberDevice: "Remember this device for 30 days",
+    useBackup: "Use a backup code",
+    useAuthenticator: "Use authenticator app",
+    verify: "Verify",
   },
   conversation: {
     back: "Conversations",

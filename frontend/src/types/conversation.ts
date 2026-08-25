@@ -312,6 +312,34 @@ export interface WhatsAppStatus {
   qr_data_url: string | null;
 }
 
+export interface AuditLog {
+  id: string;
+  user_id?: string | null;
+  action: string;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  ip_address?: string | null;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface TwoFactorSetup {
+  secret: string;
+  qr_code_url: string;
+  otpauth_url?: string;
+  backup_codes: string[];
+}
+
+export interface AuthSession {
+  id: string;
+  user_id: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+  last_active: string;
+  is_current: boolean;
+}
+
 export interface OutboundMessage {
   id: string;
   organization_id: string;

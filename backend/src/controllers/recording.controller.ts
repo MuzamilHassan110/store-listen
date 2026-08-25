@@ -5,6 +5,7 @@ import { createRecording, recordingBodySchema } from "../services/recording.serv
 import { getConversationBundle } from "../services/conversation.service.js";
 import { enqueueAndWait } from "../services/analysis-queue.js";
 import { env } from "../config/env.js";
+import { isAllowedAudioBuffer } from "../lib/file-magic.js";
 
 const batchManifestSchema = z.array(recordingBodySchema);
 
@@ -48,6 +49,10 @@ export const createRecordingHandler: RequestHandler = async (req, res, next) => 
 
     if (!req.file) {
       sendError(res, 400, "Audio file is required.", "AUDIO_REQUIRED");
+      return;
+    }
+    if (!isAllowedAudioBuffer(req.file.buffer)) {
+      sendError(res, 415, "Audio contents do not match a supported format.", "UNSUPPORTED_MEDIA_TYPE");
       return;
     }
 
@@ -113,6 +118,14 @@ export const createRecordingBatchHandler: RequestHandler = async (req, res, next
           index,
           ok: false,
           error: { message: "Missing file or manifest row.", code: "VALIDATION_ERROR" },
+        });
+        continue;
+      }
+      if (!isAllowedAudioBuffer(file.buffer)) {
+        results.push({
+          index,
+          ok: false,
+          error: { message: "Audio contents do not match a supported format.", code: "UNSUPPORTED_MEDIA_TYPE" },
         });
         continue;
       }

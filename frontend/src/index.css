@@ -9,4 +9,18 @@ body,
 body {
   margin: 0;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  background: #020617;
+  color: #f8fafc;
+}
+
+@media print {
+  aside,
+  header,
+  button {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
 }

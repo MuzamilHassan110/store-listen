@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BarChart3, Bell, CalendarClock, FileText, LayoutDashboard, ListChecks, LogOut, Menu, MessageSquare, MonitorSmartphone, ScrollText, Settings, Shield, Store, Trophy, Users, X } from "lucide-react";
+import { BarChart3, Bell, BookOpen, CalendarClock, FileText, LayoutDashboard, ListChecks, LogOut, Menu, MessageSquare, MonitorSmartphone, Package, ScrollText, Settings, Shield, Sparkles, Store, Trophy, Users, X } from "lucide-react";
 import { useRef, useState, type TouchEvent } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useAuth } from "../../lib/auth";
@@ -22,6 +22,9 @@ const LINKS = [
   { to: "/followups", labelKey: "nav.followups", icon: CalendarClock },
   { to: "/customers", labelKey: "nav.customers", icon: Users },
   { to: "/analytics", labelKey: "nav.analytics", icon: BarChart3 },
+  { to: "/analytics/advanced", labelKey: "nav.advancedAnalytics", icon: Sparkles },
+  { to: "/products", labelKey: "nav.products", icon: Package },
+  { to: "/scripts", labelKey: "nav.scripts", icon: BookOpen },
   { to: "/leaderboard", labelKey: "nav.leaderboard", icon: Trophy },
   { to: "/rules", labelKey: "nav.rules", icon: ListChecks },
   { to: "/reports", labelKey: "nav.reports", icon: FileText },

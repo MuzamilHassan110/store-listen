@@ -60,6 +60,9 @@ export default function Analytics() {
       <div>
         <h1 className="text-2xl font-semibold">{t("pages.analytics")}</h1>
         <p className="mt-1 text-sm text-slate-400">{t("pages.analyticsHint")}</p>
+        <Link to="/analytics/advanced" className="mt-2 inline-block text-sm text-emerald-400 hover:underline">
+          {t("pages.advancedAnalytics")} →
+        </Link>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Total conversations" value={String(data.totalConversations)} />

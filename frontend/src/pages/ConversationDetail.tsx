@@ -6,7 +6,8 @@ import { MobileAudioPlayer } from "../components/audio/MobileAudioPlayer";
 import { useLanguage } from "../contexts/LanguageContext";
 import { detectConversationLead, fetchConversationAnalysis, generateConversationPdf, retryAnalysis, scoreConversation, translateConversation } from "../services/api";
 import { formatDateTime, formatDuration } from "../lib/format";
-import { IntentBadge, SentimentBadge, StatusBadge } from "../components/conversation/Badges";
+import { EmotionBadge, IntentBadge, SentimentBadge, StatusBadge } from "../components/conversation/Badges";
+import { ConversationAiInsights } from "../components/conversation/ConversationAiInsights";
 import { ScoreBar } from "../components/conversation/ScoreBar";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -16,6 +17,10 @@ import { EmptyState, ErrorState } from "../components/States";
 function formatClock(seconds: number): string {
   const value = Math.max(0, Math.floor(seconds));
   return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 type TranscriptView = "original" | "english" | "side-by-side";
@@ -118,6 +123,7 @@ export default function ConversationDetail() {
           <h1 className="mt-2 text-2xl font-semibold">{formatDateTime(conversation.recorded_at)}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <StatusBadge status={conversation.status} />
+            {analysis?.primary_emotion ? <EmotionBadge emotion={analysis.primary_emotion} /> : null}
             <span className="text-sm text-slate-400">{formatDuration(conversation.duration_seconds)}</span>
             <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs uppercase text-slate-200">
               {conversation.analysis?.language_code ?? conversation.language ?? "—"}
@@ -263,6 +269,8 @@ export default function ConversationDetail() {
         <EmptyState title={t("errors.noAnalysis")} hint={t("errors.noAnalysisHint")} />
       )}
 
+      {analysis ? <ConversationAiInsights conversationId={conversation.id} analysis={analysis} /> : null}
+
       {analysis?.overall_score != null ? (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
@@ -394,6 +402,7 @@ export default function ConversationDetail() {
             segments.map((segment) => (
               <div
                 key={segment.id}
+                id={`seg-${Math.round(segment.start_time)}`}
                 className={`max-w-[85%] rounded-xl px-4 py-3 text-sm ${
                   segment.speaker === "salesman"
                     ? "bg-sky-950/60 text-sky-50"
@@ -403,7 +412,26 @@ export default function ConversationDetail() {
                 <p className="text-xs uppercase tracking-wide opacity-70">
                   {segment.speaker} · {formatClock(segment.start_time)}
                 </p>
-                <p className="mt-1">{segment.text}</p>
+                <p className="mt-1">
+                  {analysis?.tone_analysis?.filler_words?.length
+                    ? segment.text
+                        .split(
+                          new RegExp(
+                            `\\b(${analysis.tone_analysis.filler_words.map(escapeRegExp).join("|")})\\b`,
+                            "gi",
+                          ),
+                        )
+                        .map((part, index) =>
+                        analysis.tone_analysis?.filler_words.some((word) => word.toLowerCase() === part.toLowerCase()) ? (
+                          <mark key={`${segment.id}-${index}`} className="rounded bg-amber-500/30 px-0.5 text-amber-100">
+                            {part}
+                          </mark>
+                        ) : (
+                          <span key={`${segment.id}-${index}`}>{part}</span>
+                        ),
+                      )
+                    : segment.text}
+                </p>
               </div>
             ))
           ) : (

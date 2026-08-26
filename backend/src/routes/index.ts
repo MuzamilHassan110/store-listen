@@ -24,6 +24,9 @@ import { auditRouter } from "./audit.routes.js";
 import { backupRouter } from "./backup.routes.js";
 import { licenseRouter } from "./license.routes.js";
 import { versionRouter } from "./version.routes.js";
+import { productRouter } from "./product.routes.js";
+import { scriptRouter } from "./script.routes.js";
+import { insightRouter } from "./insight.routes.js";
 import { auditMutations } from "../middleware/audit.js";
 
 export const router = Router();
@@ -53,4 +56,7 @@ router.use("/export", exportRouter);
 router.use("/retention", retentionRouter);
 router.use("/whatsapp", whatsappRouter);
 router.use("/sms", smsRouter);
+router.use("/products", productRouter);
+router.use("/scripts", scriptRouter);
+router.use("/insights", insightRouter);
 router.use("/communication", communicationRouter);

@@ -21,6 +21,98 @@ export interface LanguageInsights {
   local_objections?: string[];
 }
 
+export interface EmotionAnalysis {
+  primary_emotion: string;
+  emotion_scores: Record<string, number>;
+  emotional_intensity: number;
+  emotion_triggers: Array<{ word: string; emotion: string; count: number }>;
+}
+
+export interface ToneAnalysis {
+  confidence_score: number;
+  professionalism_score: number;
+  enthusiasm_score: number;
+  empathy_score: number;
+  assertiveness_score: number;
+  filler_word_count: number;
+  filler_words: string[];
+  speaking_pace?: "slow" | "moderate" | "fast";
+}
+
+export interface CoachingTip {
+  trigger: string;
+  suggestion: string;
+  priority: "high" | "medium" | "low";
+  timestamp: number;
+}
+
+export interface CoachingResult {
+  tips: CoachingTip[];
+  missed_opportunities: Array<{ type: string; description: string; timestamp: number }>;
+}
+
+export interface ProductRecommendation {
+  detected_preferences: {
+    budget_range: string | null;
+    features: string[];
+    brands: string[];
+    use_case: string | null;
+  };
+  recommended_products: Array<{ name: string; match_score: number; reasons: string[] }>;
+  upsell_opportunities: Array<{ product: string; reason: string }>;
+}
+
+export interface ChurnPrediction {
+  churn_risk: "low" | "medium" | "high";
+  churn_score: number;
+  risk_factors: string[];
+  retention_suggestions: string[];
+}
+
+export interface CatalogProduct {
+  id: string;
+  name: string;
+  category?: string | null;
+  price_range?: string | null;
+  features: string[];
+  brand?: string | null;
+}
+
+export interface SalesScriptContent {
+  opening: string;
+  value_proposition: string;
+  objection_handlers: Array<{ objection: string; response: string }>;
+  closing: string;
+}
+
+export interface StoredScript {
+  id: string;
+  name: string | null;
+  script_type: string | null;
+  content: SalesScriptContent;
+}
+
+export interface InsightOverview {
+  emotion: Array<{ name: string; value: number }>;
+  average_tone: {
+    confidence: number;
+    professionalism: number;
+    enthusiasm: number;
+    empathy: number;
+    assertiveness: number;
+  };
+  churn: { high: number; medium: number; low: number; unknown: number };
+  conversations_scanned: number;
+  coaching: {
+    total: number;
+    implemented: number;
+    high_priority: number;
+    effectiveness_rate: number;
+  };
+  products: { catalog: number };
+  scripts: { saved: number };
+}
+
 export interface ScoreBreakdown {
   overall_score: number;
   communication_score: number;
@@ -66,6 +158,11 @@ export interface ConversationAnalysis extends Partial<ScoreBreakdown> {
   duration_spoken_seconds?: number | null;
   ai_model?: string | null;
   ai_processed_at?: string | null;
+  primary_emotion?: string | null;
+  emotion_scores?: Record<string, number> | null;
+  emotional_intensity?: number | null;
+  emotion_triggers?: Array<{ word: string; emotion: string; count: number }> | null;
+  tone_analysis?: ToneAnalysis | null;
 }
 
 export interface TranscriptSegment {
@@ -227,6 +324,8 @@ export interface Customer {
   sms_number?: string | null;
   preferred_contact?: "whatsapp" | "sms";
   contact_consent?: boolean;
+  churn_risk?: string | null;
+  churn_score?: number | null;
 }
 
 export interface CustomerDetail extends Customer {

@@ -26,6 +26,9 @@ const WhatsAppSettings = lazy(() => import("./pages/WhatsAppSettings"));
 const SecuritySettings = lazy(() => import("./pages/SecuritySettings"));
 const AuditLogs = lazy(() => import("./pages/AuditLogs"));
 const Rules = lazy(() => import("./pages/Rules"));
+const Products = lazy(() => import("./pages/Products"));
+const Scripts = lazy(() => import("./pages/Scripts"));
+const AdvancedAnalytics = lazy(() => import("./pages/AdvancedAnalytics"));
 
 function PageFallback() {
   return (
@@ -64,6 +67,9 @@ export default function App() {
           <Route path="/customers" element={<Customers />} />
           <Route path="/customers/:id" element={<CustomerDetail />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/analytics/advanced" element={<AdvancedAnalytics />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/scripts" element={<Scripts />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/salesmen/:id" element={<SalesmanDetail />} />

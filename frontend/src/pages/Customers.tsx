@@ -8,6 +8,7 @@ import { formatDateTime } from "../lib/format";
 import { Input } from "../components/ui/input";
 import { Skeleton } from "../components/ui/skeleton";
 import { EmptyState, ErrorState } from "../components/States";
+import { ChurnBadge } from "../components/conversation/Badges";
 import { ScoreBar } from "../components/conversation/ScoreBar";
 
 export default function Customers() {
@@ -28,6 +29,11 @@ export default function Customers() {
         <ExportMenu onExport={exportCustomersCsv} />
       </div>
       <Input placeholder="Search name or phone" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-md" />
+      {list.data?.some((item) => item.churn_risk === "high") ? (
+        <p className="rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+          High-risk customers need a personal follow-up. Open a profile to see retention suggestions.
+        </p>
+      ) : null}
       {list.isLoading ? (
         <Skeleton className="h-48" />
       ) : list.isError ? (
@@ -43,6 +49,7 @@ export default function Customers() {
                 <th className="px-4 py-3 font-medium">Visits</th>
                 <th className="px-4 py-3 font-medium">Purchases</th>
                 <th className="px-4 py-3 font-medium">Last visit</th>
+                <th className="px-4 py-3 font-medium">Churn</th>
                 <th className="px-4 py-3 font-medium">Purchase probability</th>
               </tr>
             </thead>
@@ -58,6 +65,9 @@ export default function Customers() {
                   <td className="px-4 py-3">{item.total_visits}</td>
                   <td className="px-4 py-3">{item.total_purchases}</td>
                   <td className="px-4 py-3">{formatDateTime(item.last_visit_at)}</td>
+                  <td className="px-4 py-3">
+                    <ChurnBadge risk={item.churn_risk} />
+                  </td>
                   <td className="px-4 py-3 min-w-[180px]">
                     <ScoreBar label="" icon="" value={item.purchase_probability} />
                   </td>

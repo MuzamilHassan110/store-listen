@@ -20,6 +20,8 @@ export type CustomerRow = {
   sms_number: string | null;
   preferred_contact: "whatsapp" | "sms";
   contact_consent: boolean;
+  churn_risk?: string | null;
+  churn_score?: number | null;
 };
 
 export type CustomerDetail = CustomerRow & {
@@ -60,6 +62,8 @@ function mapCustomer(row: Record<string, unknown>, latestScore?: number | null):
     sms_number: decryptText(row.sms_number ? String(row.sms_number) : null),
     preferred_contact: row.preferred_contact === "sms" ? "sms" : "whatsapp",
     contact_consent: Boolean(row.contact_consent),
+    churn_risk: row.churn_risk ? String(row.churn_risk) : null,
+    churn_score: typeof row.churn_score === "number" ? row.churn_score : null,
   };
 }
 

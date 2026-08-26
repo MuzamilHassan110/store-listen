@@ -2,9 +2,9 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "../contexts/LanguageContext";
-import { fetchCustomerById, fetchWhatsAppHistory, updateCustomer } from "../services/api";
+import { fetchCustomerById, fetchCustomerChurn, fetchWhatsAppHistory, updateCustomer } from "../services/api";
 import { formatDateTime, formatDuration } from "../lib/format";
-import { FollowUpStatusBadge, PriorityBadge } from "../components/conversation/Badges";
+import { FollowUpStatusBadge, PriorityBadge, ChurnBadge } from "../components/conversation/Badges";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -24,6 +24,11 @@ export default function CustomerDetail() {
   const detail = useQuery({
     queryKey: ["customer", id],
     queryFn: () => fetchCustomerById(id),
+    enabled: Boolean(id),
+  });
+  const churn = useQuery({
+    queryKey: ["customer-churn", id],
+    queryFn: () => fetchCustomerChurn(id),
     enabled: Boolean(id),
   });
   const history = useQuery({
@@ -55,6 +60,9 @@ export default function CustomerDetail() {
           ← Customers
         </Link>
         <h1 className="mt-2 text-2xl font-semibold">{customer.name || t("pages.unnamedCustomer")}</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <ChurnBadge risk={churn.data?.churn_risk ?? customer.churn_risk} />
+        </div>
         <p className="mt-1 text-sm text-slate-400">
           {customer.phone || "No phone"} · {customer.preferred_language || "language unknown"}
         </p>
@@ -82,6 +90,38 @@ export default function CustomerDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {churn.data ? (
+        <Card className={churn.data.churn_risk === "high" ? "border-red-500/40" : ""}>
+          <CardHeader>
+            <CardTitle>Churn prediction</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <ChurnBadge risk={churn.data.churn_risk} />
+              <span className="text-2xl font-semibold">{churn.data.churn_score}</span>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-slate-500">Risk factors</p>
+              <ul className="mt-1 list-disc space-y-1 ps-5 text-sm text-slate-300">
+                {churn.data.risk_factors.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-slate-500">Retention suggestions</p>
+              <ul className="mt-1 list-disc space-y-1 ps-5 text-sm text-emerald-200">
+                {churn.data.retention_suggestions.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      ) : churn.isError ? (
+        <p className="text-sm text-amber-300">Churn analysis unavailable. Run migration 013 if this persists.</p>
+      ) : null}
 
       <Card>
         <CardHeader>

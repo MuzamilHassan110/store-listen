@@ -17,6 +17,7 @@ import {
 import { logActivity } from "./activity.service.js";
 import { invalidateScoreCache } from "./salesman.service.js";
 import { processConversationInsights } from "./lead.service.js";
+import { persistAdvancedInsights } from "./insights.service.js";
 import { scoreConversation, type ConversationScore } from "./scoring.service.js";
 import { downloadRecordingBuffer, recordingPathFromConversation } from "./storage.service.js";
 
@@ -47,6 +48,11 @@ export type ConversationAnalysisRow = {
   strengths?: string[];
   weaknesses?: string[];
   recommendations?: string[];
+  primary_emotion?: string | null;
+  emotion_scores?: Record<string, number> | null;
+  emotional_intensity?: number | null;
+  emotion_triggers?: Array<{ word: string; emotion: string; count: number }> | null;
+  tone_analysis?: Record<string, unknown> | null;
 };
 
 export type ConversationBundle = {
@@ -304,7 +310,17 @@ export async function persistAnalysisResult(input: {
     { ...input.analysis, transcript: enhanced, language: resolved.language, language_code: resolved.language },
     score,
   );
-  const hasScores = analysis.overall_score != null;
+  await persistAdvancedInsights({
+    conversationId: input.conversationId,
+    analysisId: analysis.id,
+    transcript: enhanced || resolved.original,
+    sentiment: analysis.sentiment,
+    objections: analysis.objections,
+    segments: savedSegments,
+  });
+  const { data: enriched } = await getSupabase().from("conversation_analyses").select("*").eq("id", analysis.id).maybeSingle();
+  const finalAnalysis = (enriched as ConversationAnalysisRow | null) ?? analysis;
+  const hasScores = finalAnalysis.overall_score != null;
   await setConversationStatus(input.conversationId, hasScores ? "scored" : "analyzed");
 
   if (organizationId) {
@@ -313,14 +329,14 @@ export async function persistAnalysisResult(input: {
         organizationId,
         storeId: conversationRow?.store_id ? String(conversationRow.store_id) : null,
         activityType: hasScores ? "score_updated" : "analysis_completed",
-        description: hasScores ? `Conversation scored ${analysis.overall_score}` : "AI analysis completed",
-        metadata: { conversation_id: input.conversationId, overall_score: analysis.overall_score },
+        description: hasScores ? `Conversation scored ${finalAnalysis.overall_score}` : "AI analysis completed",
+        metadata: { conversation_id: input.conversationId, overall_score: finalAnalysis.overall_score },
       });
       await processConversationInsights({
         conversationId: input.conversationId,
         organizationId,
-        overallScore: analysis.overall_score,
-        ruleCompliance: analysis.rule_compliance_score,
+        overallScore: finalAnalysis.overall_score,
+        ruleCompliance: finalAnalysis.rule_compliance_score,
       });
       invalidateScoreCache(organizationId);
     } catch (err) {
@@ -332,7 +348,7 @@ export async function persistAnalysisResult(input: {
   return {
     conversation: conversation ?? { id: input.conversationId, status: hasScores ? "scored" : "analyzed" },
     transcript,
-    analysis,
+    analysis: finalAnalysis,
     segments: savedSegments,
     rule_results: ruleResults,
   };

@@ -34,6 +34,13 @@ import type {
   AuditLog,
   TwoFactorSetup,
   AuthSession,
+  CoachingResult,
+  ProductRecommendation,
+  CatalogProduct,
+  ChurnPrediction,
+  SalesScriptContent,
+  StoredScript,
+  InsightOverview,
 } from "../types/conversation";
 import type { ActivityLog, Device, SessionProfile, Store, StoreComparisonRow, StoreOverview } from "../types/store";
 
@@ -103,6 +110,13 @@ function mapAnalysis(row: Record<string, unknown> | null | undefined): Conversat
     strengths: asStringArray(row.strengths),
     weaknesses: asStringArray(row.weaknesses),
     recommendations: asStringArray(row.recommendations),
+    primary_emotion: row.primary_emotion ? String(row.primary_emotion) : null,
+    emotion_scores: (row.emotion_scores as Record<string, number> | null) ?? null,
+    emotional_intensity: asOptionalNumber(row.emotional_intensity) ?? null,
+    emotion_triggers: Array.isArray(row.emotion_triggers)
+      ? (row.emotion_triggers as Array<{ word: string; emotion: string; count: number }>)
+      : null,
+    tone_analysis: (row.tone_analysis as ConversationAnalysis["tone_analysis"]) ?? null,
   };
 }
 
@@ -919,4 +933,96 @@ export async function revokeAllSessions(): Promise<{ count: number }> {
 
 export async function changePassword(password: string): Promise<{ updated: boolean }> {
   return apiJson("/api/auth/password", { method: "POST", body: JSON.stringify({ password }) });
+}
+
+export async function fetchCoaching(conversationId: string): Promise<CoachingResult> {
+  return apiJson<CoachingResult>(`/api/conversations/${conversationId}/coaching`);
+}
+
+export async function fetchRecommendations(conversationId: string): Promise<ProductRecommendation> {
+  return apiJson<ProductRecommendation>(`/api/conversations/${conversationId}/recommendations`);
+}
+
+export async function fetchProducts(): Promise<CatalogProduct[]> {
+  const rows = await apiJson<Array<Record<string, unknown>>>("/api/products");
+  return rows.map((row) => ({
+    id: String(row.id),
+    name: String(row.name ?? ""),
+    category: row.category ? String(row.category) : null,
+    price_range: row.price_range ? String(row.price_range) : null,
+    features: asStringArray(row.features),
+    brand: row.brand ? String(row.brand) : null,
+  }));
+}
+
+export async function createProduct(input: Omit<CatalogProduct, "id">): Promise<CatalogProduct> {
+  return apiJson<CatalogProduct>("/api/products", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function updateProduct(id: string, input: Omit<CatalogProduct, "id">): Promise<CatalogProduct> {
+  return apiJson<CatalogProduct>(`/api/products/${id}`, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function deleteProduct(id: string): Promise<{ id: string }> {
+  return apiJson(`/api/products/${id}`, { method: "DELETE" });
+}
+
+export async function fetchCustomerChurn(id: string): Promise<ChurnPrediction> {
+  return apiJson<ChurnPrediction>(`/api/customers/${id}/churn`);
+}
+
+export async function fetchScripts(): Promise<StoredScript[]> {
+  const rows = await apiJson<Array<Record<string, unknown>>>("/api/scripts");
+  return rows.map((row) => {
+    const content = (row.content ?? {}) as Partial<SalesScriptContent>;
+    return {
+      id: String(row.id),
+      name: row.name ? String(row.name) : null,
+      script_type: row.script_type ? String(row.script_type) : null,
+      content: {
+        opening: String(content.opening ?? ""),
+        value_proposition: String(content.value_proposition ?? ""),
+        objection_handlers: Array.isArray(content.objection_handlers)
+          ? content.objection_handlers.map((item) => ({
+              objection: String(item.objection ?? ""),
+              response: String(item.response ?? ""),
+            }))
+          : [],
+        closing: String(content.closing ?? ""),
+      },
+    };
+  });
+}
+
+export async function generateScript(input: {
+  customer_id?: string;
+  customer_name?: string;
+  product_id?: string;
+  product_name?: string;
+  preferred_language?: string;
+}): Promise<SalesScriptContent> {
+  return apiJson<SalesScriptContent>("/api/scripts/generate", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function saveScript(input: {
+  name: string;
+  script_type?: string;
+  content: SalesScriptContent;
+}): Promise<StoredScript> {
+  return apiJson<StoredScript>("/api/scripts", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function updateScript(
+  id: string,
+  input: { name: string; script_type?: string; content: SalesScriptContent },
+): Promise<StoredScript> {
+  return apiJson<StoredScript>(`/api/scripts/${id}`, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function deleteScript(id: string): Promise<{ id: string }> {
+  return apiJson(`/api/scripts/${id}`, { method: "DELETE" });
+}
+
+export async function fetchInsightOverview(): Promise<InsightOverview> {
+  return apiJson<InsightOverview>("/api/insights/overview");
 }

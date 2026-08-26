@@ -10,10 +10,6 @@ export function isSetupComplete(): boolean {
   return false;
 }
 
-export function isSetupComplete(): boolean {
-  return localStorage.getItem(SETUP_KEY) === "1";
-}
-
 export function markSetupComplete(): void {
   localStorage.setItem(SETUP_KEY, "1");
 }

@@ -1,0 +1,15 @@
+STORELISTEN END-USER LICENSE AGREEMENT
+
+Copyright © 2026 OnyxTech. All rights reserved.
+
+This software is licensed, not sold. By installing or using StoreListen you agree that:
+
+1. You may install the desktop recorder on devices allowed by your active license (trial, basic, pro, or enterprise).
+2. Audio and transcripts are sent only to the StoreListen API you configure. AI analysis runs on the server. Do not place Gemini or other AI keys in this application.
+3. You are responsible for obtaining any legally required consent before recording conversations.
+4. The software is provided “as is” without warranty of any kind.
+5. OnyxTech may provide updates through GitHub Releases. Installing an update replaces previous application files; your local offline queue remains in your Windows user data unless you uninstall and delete app data.
+
+To deactivate a license, use Settings in the app or contact your organization owner.
+
+OnyxTech  |  StoreListen

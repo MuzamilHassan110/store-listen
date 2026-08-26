@@ -12,11 +12,18 @@ export default defineConfig({
     port: 5174,
     strictPort: true,
   },
-  plugins: [
+    plugins: [
     react(),
     electron({
       main: {
         entry: "electron/main.ts",
+        vite: {
+          build: {
+            rollupOptions: {
+              external: ["electron-updater", "electron-log"],
+            },
+          },
+        },
       },
       preload: {
         input: path.join(__dirname, "electron/preload.ts"),

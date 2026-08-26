@@ -28,6 +28,13 @@ const envSchema = z.object({
   SUPABASE_ANON_KEY: z.string().optional(),
   ENCRYPTION_KEY: z.string().optional(),
   ENCRYPTION_IV: z.string().optional(),
+  DESKTOP_LATEST_VERSION: z.string().default("1.0.0"),
+  DESKTOP_MINIMUM_VERSION: z.string().default("1.0.0"),
+  DESKTOP_FORCE_UPDATE: z
+    .string()
+    .optional()
+    .transform((value) => value === "true" || value === "1"),
+  DESKTOP_DOWNLOAD_URL: z.string().default("https://github.com/MuzamilHassan110/store-listen/releases"),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -1,6 +1,15 @@
 import { app, BrowserWindow, ipcMain, Menu, session } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readDesktopConfig, writeDesktopConfig } from "./config.js";
+import {
+  checkForUpdates,
+  getUpdateStatus,
+  initUpdater,
+  installUpdate,
+  setAutoUpdateEnabled,
+  setUpdateChannel,
+} from "./updater.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -8,11 +17,17 @@ process.env.APP_ROOT = path.join(__dirname, "..");
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+const BUILT_IN_BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
 let win: BrowserWindow | null = null;
 
+function backendUrl(): string {
+  const stored = readDesktopConfig().backendUrl?.trim();
+  return (stored || BUILT_IN_BACKEND).replace(/\/$/, "");
+}
+
 function createWindow(): void {
+  const iconPath = path.join(process.env.APP_ROOT ?? __dirname, "build", "icon.ico");
   win = new BrowserWindow({
     title: "StoreListen",
     width: 420,
@@ -26,6 +41,7 @@ function createWindow(): void {
     fullscreenable: false,
     minimizable: true,
     autoHideMenuBar: true,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
@@ -57,11 +73,35 @@ function allowMicrophone(): void {
   });
 }
 
-ipcMain.handle("config:getBackendUrl", () => BACKEND_URL);
+ipcMain.handle("config:getBackendUrl", () => backendUrl());
+ipcMain.handle("config:setBackendUrl", (_event, url: string) => {
+  const next = String(url ?? "").trim().replace(/\/$/, "");
+  writeDesktopConfig({ backendUrl: next });
+  return next || backendUrl();
+});
+ipcMain.handle("app:getVersion", () => app.getVersion());
+ipcMain.handle("app:isPackaged", () => app.isPackaged);
+ipcMain.handle("update:status", () => getUpdateStatus());
+ipcMain.handle("update:check", () => {
+  checkForUpdates();
+  return getUpdateStatus();
+});
+ipcMain.handle("update:install", () => {
+  installUpdate();
+});
+ipcMain.handle("update:setAuto", (_event, enabled: boolean) => {
+  setAutoUpdateEnabled(Boolean(enabled));
+  return readDesktopConfig();
+});
+ipcMain.handle("update:setChannel", (_event, channel: "latest" | "beta") => {
+  setUpdateChannel(channel === "beta" ? "beta" : "latest");
+  return readDesktopConfig();
+});
+ipcMain.handle("update:getSettings", () => readDesktopConfig());
 
 ipcMain.handle("sync:status", async () => {
   try {
-    const response = await fetch(`${BACKEND_URL.replace(/\/$/, "")}/api/sync/status`);
+    const response = await fetch(`${backendUrl()}/api/sync/status`);
     const json = (await response.json().catch(() => null)) as {
       success?: boolean;
       data?: { reachable?: boolean; serverTime?: string; version?: string };
@@ -118,7 +158,7 @@ ipcMain.handle(
         headers.set("Authorization", `Bearer ${payload.token}`);
       }
 
-      const response = await fetch(`${BACKEND_URL.replace(/\/$/, "")}/api/recordings`, {
+      const response = await fetch(`${backendUrl()}/api/recordings`, {
         method: "POST",
         headers,
         body: form,
@@ -154,6 +194,7 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   allowMicrophone();
   createWindow();
+  initUpdater(() => win);
 });
 
 app.on("window-all-closed", () => {

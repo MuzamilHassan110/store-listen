@@ -22,12 +22,16 @@ import { communicationRouter } from "./communication.routes.js";
 import { authRouter } from "./auth.routes.js";
 import { auditRouter } from "./audit.routes.js";
 import { backupRouter } from "./backup.routes.js";
+import { licenseRouter } from "./license.routes.js";
+import { versionRouter } from "./version.routes.js";
 import { auditMutations } from "../middleware/audit.js";
 
 export const router = Router();
 
 router.use(auditMutations);
 router.use(healthRouter);
+router.use("/version", versionRouter);
+router.use("/license", licenseRouter);
 router.use("/auth", authRouter);
 router.use("/audit-logs", auditRouter);
 router.use("/backup", backupRouter);

@@ -4,7 +4,7 @@ StoreListen records in-store sales conversations on Windows, analyzes them with 
 
 ## Installation
 
-1. Apply every SQL file in `supabase/migrations/` (001–011) in the Supabase SQL editor, in order.
+1. Apply every SQL file in `supabase/migrations/` (001–012) in the Supabase SQL editor, in order.
 2. Optional demo rows: run `supabase/seed/demo.sql`.
 3. Copy `backend/.env.example` to `backend/.env` and fill Supabase plus a **Google Gemini** key (`AIza…`). Never put that key in `/desktop` or `/frontend`.
 4. Set `frontend/.env` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
@@ -15,7 +15,7 @@ StoreListen records in-store sales conversations on Windows, analyzes them with 
 
 Production dashboard: `cd frontend && npm run build`. Production API: `cd backend && npm run build && npm start`.
 
-Windows installer and auto-update are the next release phase (`desktop` already has an electron-builder NSIS target).
+Windows production: `cd desktop && npm run dist` produces `StoreListen-Setup-1.0.0.exe`. Silent: `StoreListen-Setup-1.0.0.exe /S`. Portable: `StoreListen-Portable-1.0.0.exe`. First launch walks through API URL, license/trial, device name, and a microphone test. Updates download from GitHub Releases when a newer version is published.
 
 ## Feature walkthrough
 

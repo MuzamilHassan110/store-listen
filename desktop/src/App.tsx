@@ -5,6 +5,12 @@ import { localDb } from "./db/localDatabase";
 import { useLiveCaptions } from "./hooks/useLiveCaptions";
 import { getOrCreateDeviceId, getSalesmanId } from "./lib/device";
 import { CAPTION_LANGUAGES, isRtlLanguage, shortLanguageCode, type CaptionLanguage } from "./lib/language";
+import { isLicenseValid, readLicense } from "./lib/license";
+import { isSetupComplete } from "./lib/setup";
+import { isBelowMinimum } from "./lib/version";
+import UpdateBanner from "./components/UpdateBanner";
+import SettingsPanel from "./components/SettingsPanel";
+import Setup from "./pages/Setup";
 import {
   cacheAuthToken,
   saveRecordingLocally,
@@ -60,6 +66,9 @@ async function sha256Hex(buffer: ArrayBuffer): Promise<string> {
 }
 
 export default function App() {
+  const [setupDone, setSetupDone] = useState(() => isSetupComplete());
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [forceUpdate, setForceUpdate] = useState<string | null>(null);
   const [state, setState] = useState<AppState>("idle");
   const [elapsedMs, setElapsedMs] = useState(0);
   const [message, setMessage] = useState("Ready to record a sales conversation.");
@@ -113,6 +122,26 @@ export default function App() {
     void cacheAuthToken(token);
     startAutoSync(readAuthToken);
     const unsubscribe = subscribeSync(setSync);
+    void (async () => {
+      try {
+        const [current, base] = await Promise.all([
+          window.storelisten.getAppVersion(),
+          window.storelisten.getBackendUrl(),
+        ]);
+        const response = await fetch(`${base}/api/version`);
+        const json = (await response.json().catch(() => null)) as {
+          data?: { minimum?: string; critical?: boolean };
+        } | null;
+        const minimum = json?.data?.minimum;
+        if (minimum && isBelowMinimum(current, minimum)) {
+          setForceUpdate(`This recorder is too old (minimum ${minimum}). Install the latest release.`);
+        } else if (json?.data?.critical && minimum && current !== minimum) {
+          setForceUpdate("A required update is available. Please restart after it downloads.");
+        }
+      } catch {
+        // offline first-run is fine
+      }
+    })();
     return () => {
       unsubscribe();
       clearTimer();
@@ -124,6 +153,10 @@ export default function App() {
   }, []);
 
   async function startRecording(): Promise<void> {
+    if (!isLicenseValid(readLicense())) {
+      setMessage("License expired or missing. Open Settings to activate.");
+      return;
+    }
     setMessage("");
     setConversationId(null);
     chunksRef.current = [];
@@ -321,12 +354,22 @@ export default function App() {
 
   const captionsActive = state === "recording" || state === "paused";
   const syncTone = !sync.online ? "offline" : pending > 0 || sync.syncing ? "pending" : "synced";
+  const licenseOk = isLicenseValid(readLicense());
+
+  if (!setupDone) {
+    return <Setup onDone={() => setSetupDone(true)} />;
+  }
 
   return (
     <main className={`shell state-${state}`}>
+      <UpdateBanner forceMessage={forceUpdate} />
+      {settingsOpen ? <SettingsPanel onClose={() => setSettingsOpen(false)} /> : null}
       <header className="topbar">
         <p className="brand">StoreListen</p>
         <div className="topbar-actions">
+          <button type="button" className="sync-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">
+            Settings
+          </button>
           <span className={`net-dot ${sync.online ? "online" : "offline"}`} title={sync.online ? "Online" : "Offline"} />
           <span className={`sync-status tone-${syncTone}`}>
             {!sync.online ? "Offline" : sync.syncing ? "Syncing" : pending > 0 ? `${pending} pending` : "All synced"}
@@ -375,7 +418,7 @@ export default function App() {
         <button
           type="button"
           className="btn btn-primary"
-          disabled={primary.disabled}
+          disabled={primary.disabled || (state === "idle" && !licenseOk)}
           onClick={primary.action}
         >
           <span>{primary.label}</span>

@@ -6,3 +6,6 @@ release
 .env.local
 .env.*.local
 *.log
+certs/
+*.pfx
+*.p12

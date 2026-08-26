@@ -5,35 +5,28 @@
   "private": true,
   "description": "StoreListen desktop recorder",
   "author": "Onyx Tech",
+  "license": "UNLICENSED",
   "type": "module",
   "main": "dist-electron/main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MuzamilHassan110/store-listen.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "dist": "npm run build && electron-builder --win",
+    "dist:portable": "npm run build && electron-builder --win portable",
+    "dist:dir": "npm run build && electron-builder --win --dir",
+    "publish": "npm run build && electron-builder --win --publish always",
+    "icons": "node scripts/make-icons.mjs",
     "test": "vitest run"
-  },
-  "build": {
-    "appId": "com.onyxtech.storelisten",
-    "productName": "StoreListen",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "dist-electron/**/*"
-    ],
-    "win": {
-      "target": "nsis"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    }
   },
   "dependencies": {
     "dexie": "^4.4.5",
     "dexie-react-hooks": "^4.4.0",
+    "electron-log": "^5.4.4",
+    "electron-updater": "^6.8.9",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

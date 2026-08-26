@@ -8,6 +8,7 @@ export default defineConfig({
     setupFiles: ["./src/__tests__/setup.ts"],
     include: ["src/__tests__/**/*.test.{ts,tsx}"],
     fileParallelism: false,
-    pool: "threads",
+    pool: "forks",
+    maxWorkers: 1,
   },
 });

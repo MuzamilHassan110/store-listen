@@ -14,7 +14,7 @@ Copy env files:
 - `frontend/.env` — `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, optional `VITE_BACKEND_URL`
 - `desktop/.env` — `VITE_BACKEND_URL` only
 
-Apply `supabase/migrations/001` through `011` in order. Optional: `supabase/seed/demo.sql`.
+Apply `supabase/migrations/001` through `012` in order. Optional: `supabase/seed/demo.sql`.
 
 Run (three terminals):
 
@@ -56,7 +56,7 @@ Backend tests use Vitest + SuperTest and do not start WhatsApp/Puppeteer (`NODE_
 
 - Keep Gemini and secrets out of `/desktop` and `/frontend`.
 - Do not commit `.env`.
-- New SQL goes in the next unused migration number (012+). Never overwrite 007–011.
+- New SQL goes in the next unused migration number (013+). Never overwrite 007–012.
 - API responses use `{ success, message, data?, error? }`.
 - Match existing TypeScript style; avoid drive-by refactors.
 - PowerShell: chain with `;`, not `&&`, if an older host requires it.
@@ -70,5 +70,32 @@ Backend tests use Vitest + SuperTest and do not start WhatsApp/Puppeteer (`NODE_
 5. Keep `WHATSAPP_ENABLED=false` until you are ready to scan a QR on the server.
 6. Nightly backups write encrypted JSON to the `backups` bucket at 03:00 and prune after 30 days.
 7. Health: `GET /api/health` and `GET /api/health/detailed`.
+8. Desktop version gate: `GET /api/version`.
 
-Next product phase: Windows NSIS installer plus auto-update for the Electron app (`desktop` `electron-builder` config is already present).
+## Windows installer
+
+```powershell
+cd desktop
+npm install
+npm run icons
+npm run dist
+```
+
+Outputs in `desktop/release/`:
+
+- `StoreListen-Setup-1.0.0.exe` — NSIS installer (`/S` silent, `/D=path` directory)
+- `StoreListen-Portable-1.0.0.exe` — no install
+
+Publish a GitHub Release (needs `GH_TOKEN` or Actions):
+
+```powershell
+# bump desktop/package.json version, then:
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow `.github/workflows/release.yml` runs tests and `electron-builder --win --publish always`.
+
+Code signing: buy an Authenticode cert, set `CSC_LINK` / `CSC_KEY_PASSWORD` (and `WIN_*` variants). Dev only: `desktop/scripts/generate-dev-cert.ps1`. Set `win.verifyUpdateCodeSignature` to `true` in `electron-builder.yml` after the public cert is in use.
+
+Apply migration `012` for licenses. Gemini keys stay on the backend.

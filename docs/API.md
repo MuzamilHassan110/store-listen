@@ -70,6 +70,8 @@ Health endpoints are the exception: they return `{ ok, service, timestamp }` or 
 | `VALIDATION_ERROR` | 400 | Zod / request body failed |
 | `NOT_FOUND` | 404 | Resource missing |
 | `RATE_LIMITED` | 429 | Too many requests |
+| `LICENSE_NOT_FOUND` | 404 | Unknown license key |
+| `LICENSE_INVALID` | 403 | Expired or inactive license |
 | `INTERNAL_ERROR` | 500 | Unexpected server error |
 
 Stack traces are logged with Pino, not returned to clients.
@@ -82,6 +84,7 @@ Stack traces are logged with Pino, not returned to clients.
 | GET | `/api/health/detailed` | no | Database, storage, AI config, cache size, memory |
 | POST | `/api/health/client-error` | no | Dashboard ErrorBoundary reports |
 | GET | `/api/sync/status` | no | Desktop reachability check |
+| GET | `/api/version` | no | Latest/minimum desktop versions, force-update flag |
 
 `X-Response-Time` is set on every response. Responses are gzip-compressed.
 
@@ -182,6 +185,38 @@ Messages respect customer consent and quiet hours (10 PM–9 AM).
 | POST | `/api/backup/restore` | owner |
 
 Customer phones/emails may be stored as `enc:v1:` AES-256-GCM ciphertext when `ENCRYPTION_KEY` is set.
+
+## License
+
+Apply migration `012`. Activation is public (rate limited) so the desktop wizard can run before sign-in.
+
+| Method | Path | Auth | Notes |
+| --- | --- | --- | --- |
+| POST | `/api/license/activate` | no | `{ license_key, device_id }` or `{ trial: true, device_id }` |
+| GET | `/api/license/status?key=` | no | Validity, plan, days left |
+| POST | `/api/license/deactivate` | manager+ | `{ license_key }` |
+| POST | `/api/license/renew` | manager+ | `{ license_key }` |
+| POST | `/api/license/generate` | owner | `{ plan_type, organization_id?, max_* }` |
+
+```http
+POST /api/license/activate
+Content-Type: application/json
+
+{ "trial": true, "device_id": "desktop-1" }
+```
+
+```json
+{
+  "success": true,
+  "message": "Trial started.",
+  "data": {
+    "license_key": "SL-A1B2-C3D4-E5F6-7890",
+    "plan_type": "trial",
+    "valid": true,
+    "days_left": 14
+  }
+}
+```
 
 ## Example: upload a recording
 

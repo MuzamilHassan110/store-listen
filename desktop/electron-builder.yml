@@ -1,0 +1,58 @@
+appId: com.onyxtech.storelisten
+productName: StoreListen
+copyright: Copyright © 2026 OnyxTech
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+
+extraFiles:
+  - from: LICENSE.txt
+    to: LICENSE.txt
+  - from: build/README.txt
+    to: README.txt
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: build/icon.ico
+  publisherName: OnyxTech
+  # Unsigned/dev builds must stay false; set true after a purchased Authenticode cert is wired via CSC_LINK.
+  verifyUpdateCodeSignature: false
+  signAndEditExecutable: true
+
+nsis:
+  oneClick: false
+  perMachine: true
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: StoreListen
+  uninstallDisplayName: StoreListen
+  license: LICENSE.txt
+  include: build/installer.nsh
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+  artifactName: ${productName}-Setup-${version}.${ext}
+  installerSidebar: null
+  uninstallerSidebar: null
+
+portable:
+  artifactName: ${productName}-Portable-${version}.${ext}
+
+publish:
+  provider: github
+  owner: MuzamilHassan110
+  repo: store-listen
+  releaseType: release

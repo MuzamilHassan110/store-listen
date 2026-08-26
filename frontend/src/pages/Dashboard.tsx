@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ActivityFeed } from "../components/ActivityFeed";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -11,11 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Skeleton } from "../components/ui/skeleton";
 import { EmptyState, ErrorState } from "../components/States";
 import { IntentBadge, PriorityBadge, StatusBadge } from "../components/conversation/Badges";
+import { Onboarding } from "../components/Onboarding";
+import { isDemoMode, DEMO_STATS } from "../lib/demo";
 
 const COLORS = ["#34d399", "#f87171", "#94a3b8"];
 
 export default function Dashboard() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { selectedStoreId, selectedStore, stores } = useStoreFilter();
   const { refreshing } = usePullToRefresh(() => queryClient.invalidateQueries());
@@ -50,10 +53,25 @@ export default function Dashboard() {
   }
   if (analytics.isError) return <ErrorState message={analytics.error.message} onRetry={() => void analytics.refetch()} />;
   const data = analytics.data;
-  if (!data) return <EmptyState title={t("errors.emptyDashboard")} hint={t("errors.emptyDashboardHint")} />;
+  if (!data) {
+    return (
+      <EmptyState
+        title={t("errors.emptyDashboard")}
+        hint={t("errors.emptyDashboardHint")}
+        action={{ label: t("nav.conversations"), onClick: () => navigate("/conversations") }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
+      <Onboarding />
+      {isDemoMode() ? (
+        <p className="rounded-lg border border-sky-800 bg-sky-950/40 px-3 py-2 text-sm text-sky-100">
+          Demo mode is on. Sample figures: {DEMO_STATS.todayCount} conversations, {DEMO_STATS.highIntentCount} high-intent
+          leads, top salesman {DEMO_STATS.topSalesman}.
+        </p>
+      ) : null}
       <div>
         <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
         <p className="mt-1 text-sm text-slate-400">

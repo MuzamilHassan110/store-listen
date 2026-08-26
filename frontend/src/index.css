@@ -13,6 +13,14 @@ body {
   color: #f8fafc;
 }
 
+button,
+a,
+input,
+select,
+textarea {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, opacity 150ms ease;
+}
+
 html.font-urdu body,
 html.font-urdu #root {
   font-family: "Noto Nastaliq Urdu", Inter, ui-sans-serif, sans-serif;

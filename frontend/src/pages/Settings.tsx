@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isDemoMode, resetDemoData, setDemoMode } from "../lib/demo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -24,6 +25,7 @@ export default function Settings() {
   const [email, setEmail] = useState("");
   const [type, setType] = useState("weekly");
   const [days, setDays] = useState(90);
+  const [demo, setDemo] = useState(() => isDemoMode());
   const comm = useQuery({ queryKey: ["communication-settings"], queryFn: fetchCommunicationSettings });
   const saveComm = useMutation({
     mutationFn: saveCommunicationSettings,
@@ -208,6 +210,35 @@ export default function Settings() {
             Cleanup copies transcript/analysis into the archive table and deletes audio older than the retention window.
             Scores stay on the live conversation row.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Demo mode</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <label className="flex min-h-11 items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={demo}
+              onChange={(e) => {
+                setDemo(e.target.checked);
+                setDemoMode(e.target.checked);
+              }}
+            />
+            Show sample dashboard figures (does not write to the database)
+          </label>
+          <Button
+            variant="ghost"
+            className="mt-3"
+            onClick={() => {
+              resetDemoData();
+              setDemo(false);
+            }}
+          >
+            Reset demo data and onboarding
+          </Button>
         </CardContent>
       </Card>
     </div>

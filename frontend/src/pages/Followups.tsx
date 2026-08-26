@@ -126,7 +126,11 @@ export default function Followups() {
       ) : list.isError ? (
         <ErrorState message={list.error.message} onRetry={() => void list.refetch()} />
       ) : !rows.length ? (
-        <EmptyState title="No follow-ups yet" hint="Analyze a high-intent conversation, or create one manually." />
+        <EmptyState
+          title="No follow-ups yet"
+          hint="Analyze a high-intent conversation, or create one manually."
+          action={{ label: "Create follow-up", onClick: () => setOpen(true) }}
+        />
       ) : (
         <div className="space-y-3">
           {rows.map((item) => (

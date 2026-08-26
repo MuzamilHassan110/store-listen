@@ -11,6 +11,8 @@ import { Button } from "../ui/button";
 import { BottomNav, MOBILE_TABS } from "./BottomNav";
 import { InstallPrompt } from "../pwa/InstallPrompt";
 import { PushPermission } from "../pwa/PushPermission";
+import { OfflineBanner } from "../OfflineBanner";
+import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 
 const LINKS = [
   { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
@@ -38,6 +40,7 @@ export function AppLayout() {
   const location = useLocation();
   const touchStartX = useRef(0);
   useRealtimeDashboard();
+  useKeyboardShortcuts();
 
   function onTouchStart(event: TouchEvent<HTMLElement>): void {
     touchStartX.current = event.changedTouches[0]?.clientX ?? 0;
@@ -110,6 +113,7 @@ export function AppLayout() {
           <LanguageSelector />
           <Notifications />
         </div>
+        <OfflineBanner />
         <InstallPrompt />
         <PushPermission />
         <Outlet />

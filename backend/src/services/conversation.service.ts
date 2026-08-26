@@ -15,6 +15,7 @@ import {
   type RuleEvaluation,
 } from "./rules.service.js";
 import { logActivity } from "./activity.service.js";
+import { invalidateScoreCache } from "./salesman.service.js";
 import { processConversationInsights } from "./lead.service.js";
 import { scoreConversation, type ConversationScore } from "./scoring.service.js";
 import { downloadRecordingBuffer, recordingPathFromConversation } from "./storage.service.js";
@@ -321,6 +322,7 @@ export async function persistAnalysisResult(input: {
         overallScore: analysis.overall_score,
         ruleCompliance: analysis.rule_compliance_score,
       });
+      invalidateScoreCache(organizationId);
     } catch (err) {
       logger.error({ err, conversationId: input.conversationId }, "Lead/notification hook failed");
     }

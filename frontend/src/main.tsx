@@ -7,6 +7,7 @@ import { StoreProvider } from "./contexts/StoreContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import { AuthProvider } from "./lib/auth";
 import { registerSW } from "virtual:pwa-register";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import App from "./App";
 import "./index.css";
 
@@ -18,6 +19,7 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
+      staleTime: 60_000,
     },
   },
 });
@@ -33,9 +35,11 @@ createRoot(root).render(
         <AuthProvider>
           <StoreProvider>
             <ToastProvider>
-              <BrowserRouter>
-                <App />
-              </BrowserRouter>
+              <ErrorBoundary>
+                <BrowserRouter>
+                  <App />
+                </BrowserRouter>
+              </ErrorBoundary>
             </ToastProvider>
           </StoreProvider>
         </AuthProvider>

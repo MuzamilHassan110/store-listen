@@ -1,11 +1,27 @@
 import { useLanguage } from "../contexts/LanguageContext";
 import { Button } from "./ui/button";
 
-export function EmptyState({ title, hint }: { title: string; hint: string }) {
+export function EmptyState({
+  title,
+  hint,
+  action,
+}: {
+  title: string;
+  hint: string;
+  action?: { label: string; onClick: () => void };
+}) {
   return (
     <div className="rounded-xl border border-dashed border-slate-800 px-6 py-16 text-center">
+      <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-slate-900 text-2xl" aria-hidden>
+        🗂️
+      </div>
       <h3 className="text-lg font-semibold text-slate-100">{title}</h3>
       <p className="mt-2 text-sm text-slate-400">{hint}</p>
+      {action ? (
+        <Button className="mt-4" onClick={action.onClick}>
+          {action.label}
+        </Button>
+      ) : null}
     </div>
   );
 }

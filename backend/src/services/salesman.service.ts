@@ -1,6 +1,7 @@
 import { HttpError } from "../lib/http-error.js";
 import { logger } from "../lib/logger.js";
 import { getSupabase } from "../lib/supabase.js";
+import { CACHE_TTL, cacheInvalidate, cacheWrap } from "./cache.service.js";
 import type { ConversationScore } from "./scoring.service.js";
 
 export type LeaderboardPeriod = "week" | "month" | "all";
@@ -139,7 +140,19 @@ async function loadScoredConversations(organizationId: string, from?: string | n
   }));
 }
 
+export function invalidateScoreCache(organizationId: string): void {
+  cacheInvalidate(`scores:${organizationId}`);
+  cacheInvalidate(`leaderboard:${organizationId}`);
+}
+
 export async function getSalesmanPerformance(
+  organizationId: string,
+  salesmanId: string,
+): Promise<SalesmanPerformance> {
+  return cacheWrap(`scores:${organizationId}:${salesmanId}`, CACHE_TTL.scores, () => loadSalesmanPerformance(organizationId, salesmanId));
+}
+
+async function loadSalesmanPerformance(
   organizationId: string,
   salesmanId: string,
 ): Promise<SalesmanPerformance> {
@@ -186,6 +199,13 @@ export async function getSalesmanPerformance(
 export async function getSalesmanLeaderboard(
   organizationId: string,
   period: LeaderboardPeriod = "all",
+): Promise<LeaderboardEntry[]> {
+  return cacheWrap(`leaderboard:${organizationId}:${period}`, CACHE_TTL.scores, () => loadSalesmanLeaderboard(organizationId, period));
+}
+
+async function loadSalesmanLeaderboard(
+  organizationId: string,
+  period: LeaderboardPeriod,
 ): Promise<LeaderboardEntry[]> {
   const { data: salesmen, error } = await getSupabase()
     .from("salesmen")

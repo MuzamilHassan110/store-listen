@@ -1,9 +1,10 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
-type Toast = { id: number; message: string };
+type ToastKind = "success" | "error" | "warning" | "info";
+type Toast = { id: number; message: string; kind: ToastKind };
 
 type ToastContextValue = {
-  push: (message: string) => void;
+  push: (message: string, kind?: ToastKind) => void;
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -13,9 +14,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<ToastContextValue>(
     () => ({
-      push: (message: string) => {
+      push: (message: string, kind: ToastKind = "success") => {
         const id = Date.now() + Math.random();
-        setToasts((current) => [...current.slice(-4), { id, message }]);
+        setToasts((current) => [...current.slice(-4), { id, message, kind }]);
         window.setTimeout(() => {
           setToasts((current) => current.filter((item) => item.id !== id));
         }, 4500);
@@ -31,7 +32,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className="rounded-lg border border-emerald-800 bg-emerald-950/90 px-4 py-3 text-sm text-emerald-50 shadow-lg"
+            role="status"
+            className={`rounded-lg border px-4 py-3 text-sm shadow-lg ${
+              toast.kind === "error"
+                ? "border-red-800 bg-red-950/90 text-red-50"
+                : toast.kind === "warning"
+                  ? "border-amber-800 bg-amber-950/90 text-amber-50"
+                  : toast.kind === "info"
+                    ? "border-sky-800 bg-sky-950/90 text-sky-50"
+                    : "border-emerald-800 bg-emerald-950/90 text-emerald-50"
+            }`}
           >
             {toast.message}
           </div>

@@ -36,6 +36,10 @@ let pumping = false;
 
 function notify(conversationId: string, result: AnalysisJobResult): void {
   completed.set(conversationId, result);
+  if (completed.size > 200) {
+    const oldest = completed.keys().next().value;
+    if (oldest) completed.delete(oldest);
+  }
   const waiters = waitersById.get(conversationId) ?? [];
   waitersById.delete(conversationId);
   for (const waiter of waiters) waiter(result);

@@ -203,6 +203,55 @@
   color: #9ca3af;
 }
 
+.suggestion-panel {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+.suggestion-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.suggestion-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #34d399;
+}
+
+.suggestion-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #f3f4f6;
+  font-weight: 500;
+}
+
+.suggestion-dismiss {
+  background: transparent;
+  border: 0;
+  color: #9ca3af;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.suggestion-dismiss:hover {
+  color: #f3f4f6;
+}
+
 .actions {
   margin-top: 12px;
   width: 100%;

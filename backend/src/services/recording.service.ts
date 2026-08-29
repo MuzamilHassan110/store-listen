@@ -7,8 +7,18 @@ import { logger } from "../lib/logger.js";
 import { logActivity } from "./activity.service.js";
 import { findDeviceByHardwareId } from "./device.service.js";
 import { buildRecordingObjectPath, uploadRecordingBuffer } from "./storage.service.js";
+import { clearChunkCounter } from "./live-stream.service.js";
 
 export const recordingBodySchema = z.object({
+  conversationId: z
+    .string()
+    .optional()
+    .transform((value) => {
+      if (!value) return null;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+        ? value
+        : null;
+    }),
   duration: z.coerce.number().int().nonnegative(),
   transcript: z.string().optional().default(""),
   language: z.string().optional(),
@@ -92,12 +102,109 @@ export async function createRecording(input: {
   file: Express.Multer.File;
 }): Promise<ConversationWithTranscript> {
   const recordingHash = hashRecordingBuffer(input.file.buffer);
-  const existing = await findConversationByHash(input.organizationId, recordingHash);
-  if (existing) return existing;
+  const existingByHash = await findConversationByHash(input.organizationId, recordingHash);
+  if (existingByHash) return existingByHash;
 
-  const conversationId = randomUUID();
+  const supabase = getSupabase();
   const language = input.body.language?.trim() || null;
   const transcriptText = input.body.transcript.trim();
+
+  // Check if attaching to an existing pre-started conversation
+  if (input.body.conversationId) {
+    const { data: existingConv } = await supabase
+      .from("conversations")
+      .select("*")
+      .eq("id", input.body.conversationId)
+      .eq("organization_id", input.organizationId)
+      .maybeSingle();
+
+    if (existingConv) {
+      const conversationId = String(existingConv.id);
+      clearChunkCounter(conversationId);
+
+      let storeId = existingConv.store_id || input.body.storeId || null;
+      if (!storeId) {
+        const device = await findDeviceByHardwareId(input.organizationId, input.body.deviceId);
+        if (device?.store_id) storeId = String(device.store_id);
+      }
+
+      const objectPath = buildRecordingObjectPath(input.organizationId, storeId, conversationId);
+      const { recordingUrl } = await uploadRecordingBuffer({
+        path: objectPath,
+        buffer: input.file.buffer,
+        contentType: input.file.mimetype || "audio/webm",
+      });
+
+      const updateData: Record<string, unknown> = {
+        duration_seconds: input.body.duration,
+        recording_url: recordingUrl,
+        recording_path: objectPath,
+        recording_hash: recordingHash,
+        status: "queued",
+        device_id: input.body.deviceId,
+      };
+      if (language && !existingConv.language) updateData.language = language;
+      if (storeId && !existingConv.store_id) updateData.store_id = storeId;
+      if (input.body.salesmanId && !existingConv.salesman_id) updateData.salesman_id = input.body.salesmanId;
+
+      const { data: updatedConv, error: updateError } = await supabase
+        .from("conversations")
+        .update(updateData)
+        .eq("id", conversationId)
+        .select()
+        .single();
+
+      if (updateError || !updatedConv) {
+        logger.error({ err: updateError, conversationId }, "Failed to update existing conversation");
+        throw new HttpError(500, "Failed to attach recording to conversation.", "CONVERSATION_UPDATE_FAILED");
+      }
+
+      const { data: existingTranscript } = await supabase
+        .from("transcripts")
+        .select("*")
+        .eq("conversation_id", conversationId)
+        .limit(1)
+        .maybeSingle();
+
+      let transcriptRow = existingTranscript;
+      if (existingTranscript) {
+        const { data: updatedTrans } = await supabase
+          .from("transcripts")
+          .update({
+            text: transcriptText || existingTranscript.text,
+            language: language || existingTranscript.language,
+          })
+          .eq("id", existingTranscript.id)
+          .select()
+          .single();
+        if (updatedTrans) transcriptRow = updatedTrans;
+      } else {
+        const { data: insertedTrans } = await supabase
+          .from("transcripts")
+          .insert({
+            conversation_id: conversationId,
+            text: transcriptText,
+            language,
+            is_auto_generated: true,
+          })
+          .select()
+          .single();
+        if (insertedTrans) transcriptRow = insertedTrans;
+      }
+
+      await logActivity({
+        organizationId: input.organizationId,
+        storeId,
+        activityType: "conversation_uploaded",
+        description: "Recording attached to existing conversation",
+        metadata: { conversation_id: conversationId, device_id: input.body.deviceId },
+      });
+
+      return { ...updatedConv, transcript: transcriptRow ?? null };
+    }
+  }
+
+  const conversationId = randomUUID();
   let storeId = input.body.storeId ?? null;
   if (!storeId) {
     const device = await findDeviceByHardwareId(input.organizationId, input.body.deviceId);
@@ -112,7 +219,6 @@ export async function createRecording(input: {
   });
 
   const recordedAt = new Date().toISOString();
-  const supabase = getSupabase();
   const row = {
     id: conversationId,
     organization_id: input.organizationId,

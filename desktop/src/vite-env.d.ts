@@ -64,6 +64,7 @@ declare global {
         deviceId: string;
         salesmanId: string | null;
         recordingHash?: string;
+        conversationId?: string | null;
         token: string | null;
       }) => Promise<UploadRecordingResult>;
       getUpdateStatus: () => Promise<UpdatePayload>;

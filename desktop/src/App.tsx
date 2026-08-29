@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import LiveCaptions from "./components/LiveCaptions";
 import { localDb } from "./db/localDatabase";
-import { useLiveCaptions } from "./hooks/useLiveCaptions";
-import { getOrCreateDeviceId, getSalesmanId } from "./lib/device";
+import { useStreamingCaptions } from "./hooks/useStreamingCaptions";
+import { getOrCreateDeviceId, getSalesmanId, getStoreId } from "./lib/device";
 import { CAPTION_LANGUAGES, isRtlLanguage, shortLanguageCode, type CaptionLanguage } from "./lib/language";
 import { isLicenseValid, readLicense } from "./lib/license";
 import { isSetupComplete } from "./lib/setup";
@@ -11,6 +11,7 @@ import { isBelowMinimum } from "./lib/version";
 import UpdateBanner from "./components/UpdateBanner";
 import SettingsPanel from "./components/SettingsPanel";
 import Setup from "./pages/Setup";
+import { startConversationApi } from "./services/api.service";
 import {
   cacheAuthToken,
   saveRecordingLocally,
@@ -94,7 +95,7 @@ export default function App() {
   const timerRef = useRef<number | null>(null);
   const deviceIdRef = useRef("");
 
-  const captions = useLiveCaptions(captionLanguage);
+  const captions = useStreamingCaptions(captionLanguage);
   const pending = useLiveQuery(
     () => localDb.recordings.where("status").anyOf(["pending", "failed"]).count(),
     [],
@@ -158,10 +159,23 @@ export default function App() {
       return;
     }
     setMessage("");
-    setConversationId(null);
     chunksRef.current = [];
     blobRef.current = null;
     captions.reset();
+
+    const token = readAuthToken();
+    void cacheAuthToken(token);
+
+    let startedConversationId: string | null = null;
+    if (token && navigator.onLine) {
+      startedConversationId = await startConversationApi({
+        salesmanId: getSalesmanId(),
+        storeId: getStoreId(),
+        language: captionLanguage,
+        token,
+      });
+    }
+    setConversationId(startedConversationId);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -181,7 +195,7 @@ export default function App() {
       recorder.start(1000);
       elapsedBeforePauseRef.current = 0;
       startTimer(0);
-      captions.start();
+      captions.start(stream, startedConversationId, token, captionLanguage);
       setState("recording");
       setMessage("Recording. Pause or stop when the conversation ends.");
     } catch (error) {
@@ -196,7 +210,7 @@ export default function App() {
     const recorder = recorderRef.current;
     if (!recorder || recorder.state !== "recording") return;
     recorder.pause();
-    captions.stop();
+    captions.pause();
     elapsedBeforePauseRef.current = Date.now() - startedAtRef.current;
     clearTimer();
     setElapsedMs(elapsedBeforePauseRef.current);
@@ -208,7 +222,9 @@ export default function App() {
     const recorder = recorderRef.current;
     if (!recorder || recorder.state !== "paused") return;
     recorder.resume();
-    captions.start();
+    if (streamRef.current) {
+      captions.resume(streamRef.current, conversationId, readAuthToken());
+    }
     startTimer(elapsedBeforePauseRef.current);
     setState("recording");
     setMessage("Recording. Pause or stop when the conversation ends.");
@@ -270,6 +286,7 @@ export default function App() {
       deviceId: deviceIdRef.current || getOrCreateDeviceId(),
       salesmanId: getSalesmanId(),
       recordingHash,
+      conversationId,
     });
 
     if (!navigator.onLine) {
@@ -411,6 +428,8 @@ export default function App() {
         interimText={captions.interimText}
         active={captionsActive}
         rtl={isRtlLanguage(captionLanguage)}
+        suggestion={captions.suggestion}
+        onDismissSuggestion={captions.dismissSuggestion}
       />
       <p className="message">{message}</p>
       {conversationId ? <p className="conversation-id">{conversationId}</p> : null}

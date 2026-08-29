@@ -1,17 +1,115 @@
 import type { RequestHandler } from "express";
+import { z } from "zod";
 import { sendError, sendSuccess } from "../lib/api-response.js";
 import { env } from "../config/env.js";
+import { isAllowedAudioBuffer } from "../lib/file-magic.js";
+import { getSupabase } from "../lib/supabase.js";
 import { enqueueAndWait } from "../services/analysis-queue.js";
+import { processStreamChunk } from "../services/live-stream.service.js";
 import {
   getConversationBundle,
   loadAudioForConversation,
   scoreExistingConversation,
+  startConversation,
 } from "../services/conversation.service.js";
 import { getConversationRuleResults } from "../services/rules.service.js";
 
 function routeId(value: string | string[] | undefined): string | undefined {
   return typeof value === "string" ? value : value?.[0];
 }
+
+const startConversationSchema = z.object({
+  salesmanId: z
+    .string()
+    .optional()
+    .transform((value) => {
+      if (!value) return null;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+        ? value
+        : null;
+    }),
+  storeId: z
+    .string()
+    .optional()
+    .transform((value) => {
+      if (!value) return null;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+        ? value
+        : null;
+    }),
+  language: z.string().optional().default("en"),
+});
+
+export const startConversationHandler: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) {
+      sendError(res, 401, "Authentication required.", "UNAUTHENTICATED");
+      return;
+    }
+
+    const body = startConversationSchema.parse(req.body ?? {});
+    const result = await startConversation(req.auth.organizationId, {
+      salesmanId: body.salesmanId,
+      storeId: body.storeId,
+      language: body.language,
+    });
+
+    sendSuccess(res, 201, "Conversation started.", result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const streamChunkHandler: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth) {
+      sendError(res, 401, "Authentication required.", "UNAUTHENTICATED");
+      return;
+    }
+
+    const id = routeId(req.params.id);
+    if (!id) {
+      sendError(res, 400, "Conversation id is required.", "VALIDATION_ERROR");
+      return;
+    }
+
+    if (!req.file) {
+      sendError(res, 400, "Audio chunk file is required.", "AUDIO_REQUIRED");
+      return;
+    }
+    if (!isAllowedAudioBuffer(req.file.buffer)) {
+      sendError(res, 415, "Audio contents do not match a supported format.", "UNSUPPORTED_MEDIA_TYPE");
+      return;
+    }
+
+    const { data: conversation, error } = await getSupabase()
+      .from("conversations")
+      .select("id")
+      .eq("id", id)
+      .eq("organization_id", req.auth.organizationId)
+      .maybeSingle();
+
+    if (error || !conversation) {
+      sendError(res, 404, "Conversation not found.", "NOT_FOUND");
+      return;
+    }
+
+    const bodyTranscript = typeof req.body?.transcriptContext === "string"
+      ? req.body.transcriptContext
+      : (typeof req.body?.transcript === "string" ? req.body.transcript : "");
+
+    const result = await processStreamChunk({
+      conversationId: id,
+      audioBuffer: req.file.buffer,
+      mimeType: req.file.mimetype || "audio/webm",
+      transcriptContext: bodyTranscript,
+    });
+
+    sendSuccess(res, 200, "Chunk processed.", result);
+  } catch (err) {
+    next(err);
+  }
+};
 
 export const getConversationAnalysisHandler: RequestHandler = async (req, res, next) => {
   try {

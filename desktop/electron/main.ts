@@ -30,14 +30,12 @@ function createWindow(): void {
   const iconPath = path.join(process.env.APP_ROOT ?? __dirname, "build", "icon.ico");
   win = new BrowserWindow({
     title: "StoreListen",
-    width: 420,
-    height: 640,
-    minWidth: 420,
-    maxWidth: 420,
-    minHeight: 640,
-    maxHeight: 640,
-    resizable: false,
-    maximizable: false,
+    width: 500,           // Initial width
+    height: 750,          // Initial height
+    minWidth: 450,        // Can shrink to 450
+    minHeight: 650,       // Can shrink to 650
+    resizable: true,      // Allow resizing
+    maximizable: true,    // Allow maximize
     fullscreenable: false,
     minimizable: true,
     autoHideMenuBar: true,
@@ -138,6 +136,7 @@ ipcMain.handle(
       deviceId: string;
       salesmanId: string | null;
       recordingHash?: string;
+      conversationId?: string | null;
       token: string | null;
     },
   ): Promise<
@@ -152,6 +151,7 @@ ipcMain.handle(
       form.append("deviceId", payload.deviceId);
       form.append("salesmanId", payload.salesmanId ?? "");
       if (payload.recordingHash) form.append("recordingHash", payload.recordingHash);
+      if (payload.conversationId) form.append("conversationId", payload.conversationId);
 
       const headers = new Headers();
       if (payload.token) {

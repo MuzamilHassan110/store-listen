@@ -12,8 +12,9 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   GEMINI_API_KEY: z.string().min(1).optional(),
-  GEMINI_MODEL: z.string().min(1).default("gemini-2.0-flash"),
+  GEMINI_MODEL: z.string().min(1).default("gemini-3.6-flash"),
   GEMINI_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
+  LIVE_SUGGESTION_EVERY_N_CHUNKS: z.coerce.number().int().positive().default(4),
   UPLOAD_DIR: z.string().default("uploads"),
   WHATSAPP_ENABLED: z
     .string()

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { env } from "../config/env.js";
 import { HttpError } from "../lib/http-error.js";
 import { logger } from "../lib/logger.js";
@@ -20,6 +21,54 @@ import { processConversationInsights } from "./lead.service.js";
 import { persistAdvancedInsights } from "./insights.service.js";
 import { scoreConversation, type ConversationScore } from "./scoring.service.js";
 import { downloadRecordingBuffer, recordingPathFromConversation } from "./storage.service.js";
+
+export type StartConversationInput = {
+  salesmanId?: string | null;
+  storeId?: string | null;
+  language?: string | null;
+};
+
+export async function startConversation(
+  organizationId: string,
+  input: StartConversationInput,
+): Promise<{ conversationId: string }> {
+  const conversationId = randomUUID();
+  const supabase = getSupabase();
+  const recordedAt = new Date().toISOString();
+
+  const row = {
+    id: conversationId,
+    organization_id: organizationId,
+    store_id: input.storeId || null,
+    salesman_id: input.salesmanId || null,
+    language: input.language?.trim() || null,
+    status: "recording",
+    recorded_at: recordedAt,
+  };
+
+  const { data, error } = await supabase
+    .from("conversations")
+    .insert(row)
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    if (input.salesmanId) {
+      const retry = await supabase
+        .from("conversations")
+        .insert({ ...row, salesman_id: null })
+        .select("id")
+        .single();
+      if (retry.data) {
+        return { conversationId: String(retry.data.id) };
+      }
+    }
+    logger.error({ error, organizationId }, "Failed to start conversation");
+    throw new HttpError(500, "Failed to start conversation.", "CONVERSATION_INSERT_FAILED");
+  }
+
+  return { conversationId: String(data.id) };
+}
 
 export type ConversationAnalysisRow = {
   id: string;

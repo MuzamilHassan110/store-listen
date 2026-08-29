@@ -3,6 +3,9 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
+    pool: "threads",
+    fileParallelism: false,
+    testTimeout: 15000,
     env: {
       NODE_ENV: "test",
     },

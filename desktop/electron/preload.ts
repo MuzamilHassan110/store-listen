@@ -10,6 +10,7 @@ export type UploadRecordingPayload = {
   deviceId: string;
   salesmanId: string | null;
   recordingHash?: string;
+  conversationId?: string | null;
   token: string | null;
 };
 

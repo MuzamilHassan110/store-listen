@@ -37,5 +37,6 @@ async function recordBlock(ip: string | undefined, endpoint: string): Promise<vo
 export const apiRateLimit = limiter(60_000, 100, "Too many requests. Try again in a minute.");
 export const authRateLimit = limiter(60_000, 5, "Too many authentication attempts.");
 export const uploadRateLimit = limiter(60_000, 10, "Too many uploads.");
+export const streamChunkRateLimit = limiter(60_000, 60, "Too many stream chunk requests.");
 export const reportRateLimit = limiter(60_000, 5, "Too many report requests.");
 export const exportRateLimit = limiter(60_000, 5, "Too many export requests.");

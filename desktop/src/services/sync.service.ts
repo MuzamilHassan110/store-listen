@@ -74,6 +74,7 @@ export async function saveRecordingLocally(input: {
   deviceId: string;
   salesmanId: string | null;
   recordingHash: string;
+  conversationId?: string | null;
 }): Promise<number> {
   const id = await localDb.recordings.add({
     audioBlob: input.audioBlob,
@@ -85,7 +86,7 @@ export async function saveRecordingLocally(input: {
     createdAt: new Date().toISOString(),
     uploadedAt: null,
     status: "pending",
-    conversationId: null,
+    conversationId: input.conversationId ?? null,
     recordingHash: input.recordingHash,
     lastError: null,
   });
@@ -109,6 +110,7 @@ async function uploadOne(row: LocalRecording, token: string): Promise<boolean> {
     deviceId: row.deviceId,
     salesmanId: row.salesmanId,
     recordingHash: row.recordingHash,
+    conversationId: row.conversationId ?? undefined,
     token,
   });
 
@@ -116,7 +118,7 @@ async function uploadOne(row: LocalRecording, token: string): Promise<boolean> {
     await localDb.recordings.update(row.id, {
       status: "synced",
       uploadedAt: new Date().toISOString(),
-      conversationId: result.conversationId ?? null,
+      conversationId: result.conversationId ?? row.conversationId ?? null,
       lastError: null,
     });
     lastError = null;

@@ -7,6 +7,8 @@ type LiveCaptionsProps = {
   interimText: string;
   active: boolean;
   rtl?: boolean;
+  suggestion?: string | null;
+  onDismissSuggestion?: () => void;
 };
 
 export default function LiveCaptions({
@@ -16,6 +18,8 @@ export default function LiveCaptions({
   interimText,
   active,
   rtl = false,
+  suggestion,
+  onDismissSuggestion,
 }: LiveCaptionsProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -27,7 +31,7 @@ export default function LiveCaptions({
 
   let body = "Captions will appear here.";
   if (!supported) {
-    body = "Live captions are not supported on this device. Recording still works.";
+    body = "Live preview unavailable. Recording still works.";
   } else if (finalText || interimText) {
     body = "";
   } else if (listening) {
@@ -48,6 +52,24 @@ export default function LiveCaptions({
           </p>
         ) : null}
       </div>
+      {suggestion ? (
+        <div className="suggestion-panel" role="alert">
+          <div className="suggestion-content">
+            <span className="suggestion-badge">AI Sales Tip</span>
+            <p className="suggestion-text">{suggestion}</p>
+          </div>
+          {onDismissSuggestion ? (
+            <button
+              type="button"
+              className="suggestion-dismiss"
+              onClick={onDismissSuggestion}
+              aria-label="Dismiss suggestion"
+            >
+              ✕
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }

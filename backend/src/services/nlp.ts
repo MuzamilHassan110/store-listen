@@ -3,23 +3,30 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 
-let wordListText: string | null = null;
+let wordSet: Set<string> | null = null;
 
-function loadWordListText(): string {
-  if (wordListText != null) return wordListText;
+function loadWordSet(): Set<string> {
+  if (wordSet != null) return wordSet;
   try {
     const wordListPath = require("word-list") as string;
-    wordListText = `\n${readFileSync(wordListPath, "utf8").toLowerCase()}\n`;
+    const content = readFileSync(wordListPath, "utf8").toLowerCase();
+    const set = new Set<string>();
+    const lines = content.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line) set.add(line);
+    }
+    wordSet = set;
   } catch {
-    wordListText = "";
+    wordSet = new Set();
   }
-  return wordListText;
+  return wordSet;
 }
 
 export function isEnglishWord(word: string): boolean {
-  const dict = loadWordListText();
-  if (!dict || word.length < 3) return false;
-  return dict.includes(`\n${word.toLowerCase()}\n`);
+  if (word.length < 3) return false;
+  const set = loadWordSet();
+  return set.has(word.toLowerCase());
 }
 
 export function tokenizeWords(text: string): string[] {

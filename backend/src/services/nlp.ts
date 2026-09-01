@@ -29,13 +29,19 @@ export function isEnglishWord(word: string): boolean {
   return set.has(word.toLowerCase());
 }
 
+let wordTokenizerInstance: { tokenize: (value: string) => string[] | null } | null = null;
+let sentimentInstance: { analyze: (value: string) => { comparative: number } } | null = null;
+
 export function tokenizeWords(text: string): string[] {
   const normalized = text.toLowerCase();
   try {
-    const natural = require("natural") as {
-      WordTokenizer: new () => { tokenize: (value: string) => string[] | null };
-    };
-    return (new natural.WordTokenizer().tokenize(normalized) ?? []).filter(Boolean);
+    if (!wordTokenizerInstance) {
+      const natural = require("natural") as {
+        WordTokenizer: new () => { tokenize: (value: string) => string[] | null };
+      };
+      wordTokenizerInstance = new natural.WordTokenizer();
+    }
+    return (wordTokenizerInstance.tokenize(normalized) ?? []).filter(Boolean);
   } catch {
     return normalized.match(/[\p{L}\p{N}']+/gu) ?? [];
   }
@@ -44,10 +50,13 @@ export function tokenizeWords(text: string): string[] {
 /** AFINN comparative score for English, or 0 if the package is unavailable. */
 export function englishSentimentScore(text: string): number {
   try {
-    const Sentiment = require("sentiment") as new () => {
-      analyze: (value: string) => { comparative: number };
-    };
-    return new Sentiment().analyze(text).comparative;
+    if (!sentimentInstance) {
+      const Sentiment = require("sentiment") as new () => {
+        analyze: (value: string) => { comparative: number };
+      };
+      sentimentInstance = new Sentiment();
+    }
+    return sentimentInstance.analyze(text).comparative;
   } catch {
     return 0;
   }

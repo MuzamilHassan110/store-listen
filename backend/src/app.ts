@@ -30,7 +30,21 @@ app.use(
   }),
 );
 const corsOrigins = env.CORS_ORIGIN.split(",").map((item) => item.trim()).filter(Boolean);
-app.use(cors({ origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins, credentials: true }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (corsOrigins.includes("*") || corsOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      if (env.NODE_ENV === "development" && /^https?:\/\/localhost(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
+      callback(null, true);
+    },
+    credentials: true,
+  }),
+);
 app.use(compression());
 app.use(responseTiming);
 app.use(express.json({ limit: "1mb" }));

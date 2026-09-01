@@ -431,7 +431,31 @@ export default function App() {
         suggestion={captions.suggestion}
         onDismissSuggestion={captions.dismissSuggestion}
       />
-      <p className="message">{message}</p>
+      <p className="message">
+        {message.includes("Sign in") ? (
+          <span>
+            Saved locally.{" "}
+            <button
+              type="button"
+              style={{
+                background: "none",
+                border: "none",
+                color: "#60a5fa",
+                textDecoration: "underline",
+                cursor: "pointer",
+                padding: 0,
+                font: "inherit",
+              }}
+              onClick={() => setSettingsOpen(true)}
+            >
+              Sign in
+            </button>
+            , then tap Sync Now.
+          </span>
+        ) : (
+          message
+        )}
+      </p>
       {conversationId ? <p className="conversation-id">{conversationId}</p> : null}
       <div className="actions">
         <button

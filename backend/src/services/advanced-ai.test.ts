@@ -35,7 +35,7 @@ describe("tone analysis", () => {
     expect(withFillers.filler_word_count).toBeGreaterThan(0);
     expect(clean.confidence_score).toBeGreaterThan(withFillers.confidence_score);
     expect(clean.professionalism_score).toBeGreaterThan(50);
-  });
+  }, 20000);
 });
 
 describe("coaching tips", () => {

@@ -1,11 +1,26 @@
 import { useEffect, useState } from "react";
 import { isLicenseValid, readLicense } from "../lib/license";
+import { cacheAuthToken } from "../services/sync.service";
+
+const AUTH_KEYS = ["storelisten_token", "access_token", "token"] as const;
+
+function getStoredToken(): string | null {
+  for (const key of AUTH_KEYS) {
+    const value = localStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+}
 
 export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const license = readLicense();
   const [version, setVersion] = useState("1.0.0");
   const [settings, setSettings] = useState<DesktopSettings | null>(null);
   const [backendUrl, setBackendUrl] = useState("");
+  const [authToken, setAuthToken] = useState(() => getStoredToken() ?? "");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [checking, setChecking] = useState(false);
 
@@ -20,6 +35,61 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
     setMessage("API URL saved.");
   }
 
+  async function handleLogin(e: React.FormEvent): Promise<void> {
+    e.preventDefault();
+    if (!email || !password) {
+      setMessage("Please enter email and password.");
+      return;
+    }
+    setAuthBusy(true);
+    setMessage("");
+    try {
+      const base = backendUrl.replace(/\/+$/, "") || "http://localhost:3000";
+      const res = await fetch(`${base}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.data?.token) {
+        throw new Error(json.message || `Login failed (${res.status})`);
+      }
+      const token = json.data.token;
+      localStorage.setItem("storelisten_token", token);
+      await cacheAuthToken(token);
+      setAuthToken(token);
+      setEmail("");
+      setPassword("");
+      setMessage("Signed in successfully!");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Sign in failed.");
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function handleSaveToken(): Promise<void> {
+    const trimmed = authToken.trim();
+    if (trimmed) {
+      localStorage.setItem("storelisten_token", trimmed);
+      await cacheAuthToken(trimmed);
+      setMessage("Auth token saved.");
+    } else {
+      localStorage.removeItem("storelisten_token");
+      await cacheAuthToken(null);
+      setMessage("Auth token cleared.");
+    }
+  }
+
+  async function handleSignOut(): Promise<void> {
+    for (const key of AUTH_KEYS) {
+      localStorage.removeItem(key);
+    }
+    await cacheAuthToken(null);
+    setAuthToken("");
+    setMessage("Signed out.");
+  }
+
   async function check(): Promise<void> {
     setChecking(true);
     const result = await window.storelisten.checkForUpdates();
@@ -28,6 +98,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   }
 
   const valid = isLicenseValid(license);
+  const isSignedIn = Boolean(authToken.trim());
 
   return (
     <div className="settings-panel">
@@ -40,6 +111,67 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
       <p className="settings-row">
         Version <strong>{version}</strong>
       </p>
+
+      {/* Account / Authentication */}
+      <div className="license-card">
+        <p className="captions-label">Account & Auth Token</p>
+        {isSignedIn ? (
+          <div>
+            <p style={{ color: "#34d399", fontWeight: 600, margin: "4px 0" }}>✓ Signed In (Token active)</p>
+            <p className="conversation-id" style={{ margin: "4px 0 8px" }}>
+              {authToken.slice(0, 16)}...{authToken.slice(-8)}
+            </p>
+            <button type="button" className="btn btn-secondary" onClick={() => void handleSignOut()}>
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <div>
+            <form onSubmit={(e) => void handleLogin(e)} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label className="setup-field">
+                Email
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="sales@store.com"
+                />
+              </label>
+              <label className="setup-field">
+                Password
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </label>
+              <button type="submit" className="btn btn-primary" disabled={authBusy}>
+                <span>{authBusy ? "Signing in…" : "Sign In"}</span>
+              </button>
+            </form>
+            <div style={{ marginTop: "12px", borderTop: "1px solid #333", paddingTop: "8px" }}>
+              <label className="setup-field">
+                Or Paste Bearer Token
+                <input
+                  value={authToken}
+                  onChange={(e) => setAuthToken(e.target.value)}
+                  placeholder="eyJhbGciOi..."
+                />
+              </label>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ marginTop: "4px" }}
+                onClick={() => void handleSaveToken()}
+              >
+                Save Token
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       <label className="setup-field">
         API URL
         <input value={backendUrl} onChange={(e) => setBackendUrl(e.target.value)} />
@@ -47,6 +179,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
       <button type="button" className="btn btn-secondary" onClick={() => void saveUrl()}>
         Save API URL
       </button>
+
       <label className="settings-check">
         <input
           type="checkbox"
@@ -73,6 +206,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
       <button type="button" className="btn btn-secondary" disabled={checking} onClick={() => void check()}>
         {checking ? "Checking…" : "Check for updates"}
       </button>
+
       <div className="license-card">
         <p className="captions-label">License</p>
         <p>{license ? `${license.plan_type} · ${valid ? "active" : "inactive"}` : "Not activated"}</p>

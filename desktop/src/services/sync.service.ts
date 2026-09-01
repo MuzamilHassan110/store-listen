@@ -100,7 +100,9 @@ async function uploadOne(row: LocalRecording, token: string): Promise<boolean> {
   await emit();
 
   const bytes = await row.audioBlob.arrayBuffer();
-  const result = await window.storelisten.uploadRecording({
+  let currentToken: string | null = token;
+
+  let result = await window.storelisten.uploadRecording({
     bytes,
     filename: `recording-${row.id}-${Date.parse(row.createdAt) || Date.now()}.webm`,
     mimeType: row.audioBlob.type || "audio/webm",
@@ -111,8 +113,29 @@ async function uploadOne(row: LocalRecording, token: string): Promise<boolean> {
     salesmanId: row.salesmanId,
     recordingHash: row.recordingHash,
     conversationId: row.conversationId ?? undefined,
-    token,
+    token: currentToken,
   });
+
+  if (!result.ok && result.status === 401) {
+    const { refreshAuthToken } = await import("./api.service.js");
+    const refreshed = await refreshAuthToken();
+    if (refreshed) {
+      currentToken = refreshed;
+      result = await window.storelisten.uploadRecording({
+        bytes,
+        filename: `recording-${row.id}-${Date.parse(row.createdAt) || Date.now()}.webm`,
+        mimeType: row.audioBlob.type || "audio/webm",
+        duration: row.duration,
+        transcript: row.transcript,
+        language: row.language,
+        deviceId: row.deviceId,
+        salesmanId: row.salesmanId,
+        recordingHash: row.recordingHash,
+        conversationId: row.conversationId ?? undefined,
+        token: currentToken,
+      });
+    }
+  }
 
   if (result.ok) {
     await localDb.recordings.update(row.id, {

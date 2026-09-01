@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   loginHandler,
+  refreshTokenHandler,
   twoFactorBackupHandler,
   twoFactorDisableHandler,
   twoFactorLoginHandler,
@@ -21,6 +22,7 @@ import { authRateLimit } from "../middleware/rate-limit.js";
 export const authRouter = Router();
 
 authRouter.post("/login", authRateLimit, loginHandler);
+authRouter.post("/refresh", authRateLimit, refreshTokenHandler);
 authRouter.post("/2fa/setup", requireAuth, twoFactorSetupHandler);
 authRouter.post("/2fa/verify", requireAuth, twoFactorVerifyHandler);
 authRouter.post("/2fa/disable", requireAuth, twoFactorDisableHandler);

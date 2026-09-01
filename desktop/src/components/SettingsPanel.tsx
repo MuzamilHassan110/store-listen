@@ -66,6 +66,9 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
       }
 
       localStorage.setItem("storelisten_token", token);
+      if (json?.data && "refresh_token" in json.data && json.data.refresh_token) {
+        localStorage.setItem("storelisten_refresh_token", String(json.data.refresh_token));
+      }
       await cacheAuthToken(token);
       setAuthToken(token);
       setEmail("");

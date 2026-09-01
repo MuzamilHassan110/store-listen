@@ -111,11 +111,9 @@ export function useStreamingCaptions(preferredLanguage?: string) {
             if (result.suggestion) {
               showSuggestion(result.suggestion);
             }
-          } else {
-            setSupported(false);
           }
         } catch {
-          setSupported(false);
+          // Transient chunk error: continue streaming next chunk
         }
       }
 

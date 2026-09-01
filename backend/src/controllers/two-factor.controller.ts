@@ -89,6 +89,28 @@ export const loginHandler: RequestHandler = async (req, res, next) => {
   }
 };
 
+const refreshSchema = z.object({
+  refresh_token: z.string().min(1),
+});
+
+export const refreshTokenHandler: RequestHandler = async (req, res, next) => {
+  try {
+    const body = refreshSchema.parse(req.body);
+    const { data, error } = await anonClient().auth.refreshSession({
+      refresh_token: body.refresh_token,
+    });
+    if (error || !data.session) {
+      throw new HttpError(401, "Invalid or expired refresh token.", "UNAUTHENTICATED");
+    }
+    sendSuccess(res, 200, "Token refreshed.", {
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const twoFactorSetupHandler: RequestHandler = async (req, res, next) => {
   try {
     if (!req.auth) {

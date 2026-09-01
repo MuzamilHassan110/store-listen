@@ -53,11 +53,18 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
       });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.data?.token) {
+      const json = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        message?: string;
+        data?: { access_token?: string; token?: string; status?: string; temp_token?: string };
+      } | null;
+
+      const token = json?.data?.access_token || json?.data?.token;
+
+      if (!res.ok || !token) {
         throw new Error(json?.message || `Login failed (Status: ${res.status})`);
       }
-      const token = json.data.token;
+
       localStorage.setItem("storelisten_token", token);
       await cacheAuthToken(token);
       setAuthToken(token);
@@ -66,7 +73,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
       setAuthSuccess("✓ Signed in successfully! Closing settings…");
       setTimeout(() => {
         onClose();
-      }, 700);
+      }, 600);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : "Sign in failed.");
     } finally {

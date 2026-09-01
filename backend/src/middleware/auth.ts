@@ -10,8 +10,9 @@ async function resolveMembership(
   userId: string,
   metadata: Record<string, unknown>,
 ): Promise<{ organizationId: string | null; role: OrgRole }> {
+  const supabase = getSupabase();
   const fromMeta = metadata.organization_id;
-  const { data, error } = await getSupabase()
+  const { data, error } = await supabase
     .from("organization_members")
     .select("organization_id, role")
     .eq("user_id", userId)
@@ -22,12 +23,44 @@ async function resolveMembership(
     logger.error({ error }, "Failed to resolve organization membership");
   }
 
-  const organizationId =
+  let organizationId =
     data?.organization_id ??
     (typeof fromMeta === "string" && fromMeta.length > 0 ? fromMeta : null);
-  const role = normalizeRole(
+  let role = normalizeRole(
     data?.role ?? (typeof metadata.role === "string" ? metadata.role : null),
   );
+
+  if (!organizationId) {
+    // Check profile
+    const profile = await supabase.from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+    if (profile.data?.organization_id) {
+      organizationId = profile.data.organization_id;
+    }
+  }
+
+  if (!organizationId) {
+    // Check if an existing organization exists or create one
+    const existingOrg = await supabase.from("organizations").select("id").limit(1).maybeSingle();
+    if (existingOrg.data?.id) {
+      organizationId = existingOrg.data.id;
+    } else {
+      const newOrg = await supabase.from("organizations").insert({ name: "My Store" }).select("id").single();
+      if (newOrg.data?.id) {
+        organizationId = newOrg.data.id;
+      }
+    }
+
+    if (organizationId) {
+      role = "owner";
+      await supabase.from("organization_members").upsert({
+        organization_id: organizationId,
+        user_id: userId,
+        role: "owner",
+      });
+      await supabase.from("profiles").update({ organization_id: organizationId }).eq("id", userId);
+    }
+  }
+
   return { organizationId, role };
 }
 

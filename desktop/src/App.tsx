@@ -377,10 +377,22 @@ export default function App() {
     return <Setup onDone={() => setSetupDone(true)} />;
   }
 
+  function handleCloseSettings(): void {
+    setSettingsOpen(false);
+    const token = readAuthToken();
+    if (token) {
+      if (state === "error") {
+        setState("idle");
+        setMessage("Signed in. Ready to record.");
+      }
+      void syncPending(token);
+    }
+  }
+
   return (
     <main className={`shell state-${state}`}>
       <UpdateBanner forceMessage={forceUpdate} />
-      {settingsOpen ? <SettingsPanel onClose={() => setSettingsOpen(false)} /> : null}
+      {settingsOpen ? <SettingsPanel onClose={handleCloseSettings} /> : null}
       <header className="topbar">
         <p className="brand">StoreListen</p>
         <div className="topbar-actions">

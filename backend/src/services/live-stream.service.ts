@@ -56,6 +56,37 @@ const LIVE_SUGGESTION_PROMPT = `You are an expert real-time AI retail sales coac
 Given the transcript of the conversation so far, provide ONE concise, actionable suggestion (maximum 20 words) for the salesman right now (e.g. handle a price objection, highlight a warranty/feature, ask a qualifying question, suggest EMI, or attempt a close).
 Return ONLY the single suggestion string without quotes or preamble.`;
 
+const FALLBACK_MODELS = [env.GEMINI_MODEL, "gemini-3.7-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-3.6-flash"];
+
+async function generateWithModelFallback(
+  client: GoogleGenerativeAI,
+  contents: Parameters<ReturnType<GoogleGenerativeAI["getGenerativeModel"]>["generateContent"]>[0],
+  timeoutMs: number,
+  timeoutMessage: string,
+  temperature = 0.1,
+) {
+  const models = [...new Set(FALLBACK_MODELS.filter(Boolean))];
+  let lastError: unknown;
+
+  for (const modelName of models) {
+    try {
+      const model = client.getGenerativeModel({
+        model: modelName,
+        generationConfig: { temperature },
+      });
+      return await withTimeout(model.generateContent(contents), timeoutMs, timeoutMessage);
+    } catch (err: unknown) {
+      lastError = err;
+      const status = (err as { status?: number })?.status;
+      if (status === 503 || status === 429 || status === 404) {
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
 export async function transcribeChunk(input: {
   audioBuffer: Buffer;
   mimeType: string;
@@ -67,19 +98,13 @@ export async function transcribeChunk(input: {
 
   try {
     const client = getGeminiClient();
-    const model = client.getGenerativeModel({
-      model: env.GEMINI_MODEL,
-      generationConfig: {
-        temperature: 0.1,
-      },
-    });
-
     const contextPrompt = input.transcriptContext?.trim()
       ? `\n\nRecent conversation context so far:\n${input.transcriptContext.trim().slice(-4000)}`
       : "";
 
-    const response = await withTimeout(
-      model.generateContent([
+    const response = await generateWithModelFallback(
+      client,
+      [
         { text: `${CHUNK_TRANSCRIPTION_PROMPT}${contextPrompt}` },
         {
           inlineData: {
@@ -87,9 +112,10 @@ export async function transcribeChunk(input: {
             data: input.audioBuffer.toString("base64"),
           },
         },
-      ]),
+      ],
       CHUNK_TIMEOUT_MS,
       "Chunk transcription timed out",
+      0.1,
     );
 
     const transcriptDelta = response.response.text().trim();
@@ -108,19 +134,12 @@ export async function generateLiveSuggestion(accumulatedTranscript: string): Pro
 
   try {
     const client = getGeminiClient();
-    const model = client.getGenerativeModel({
-      model: env.GEMINI_MODEL,
-      generationConfig: {
-        temperature: 0.3,
-      },
-    });
-
-    const response = await withTimeout(
-      model.generateContent([
-        { text: `${LIVE_SUGGESTION_PROMPT}\n\nAccumulated transcript so far:\n${text.slice(-5000)}` },
-      ]),
+    const response = await generateWithModelFallback(
+      client,
+      [{ text: `${LIVE_SUGGESTION_PROMPT}\n\nAccumulated transcript so far:\n${text.slice(-5000)}` }],
       SUGGESTION_TIMEOUT_MS,
       "Live suggestion generation timed out",
+      0.3,
     );
 
     const suggestion = response.response.text().trim().replace(/^["']|["']$/g, "");

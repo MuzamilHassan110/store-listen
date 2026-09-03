@@ -44,11 +44,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMessage: string): 
   });
 }
 
-const CHUNK_TRANSCRIPTION_PROMPT = `You are a real-time speech transcriber listening to a short audio segment of an in-store retail sales conversation between a salesman and a customer.
-Transcribe ONLY the speech in this audio chunk.
+const CHUNK_TRANSCRIPTION_PROMPT = `You are a real-time speech transcriber listening to a short audio segment of an in-store retail sales conversation.
+Transcribe accurately the speech in this audio chunk in whatever language is spoken (e.g. Urdu, English, Hindi, Roman Urdu, Arabic, etc.).
 Rules:
-- If clear from context or voice, prefix speaker label like "Salesman:" or "Customer:".
-- Do not repeat the previous context. Transcribe only what is spoken in this specific chunk.
+- If clear from context or voice, you may prefix speaker label like "Salesman:" or "Customer:".
+- Do not repeat previous context. Transcribe only what was spoken in this specific chunk.
 - If the audio is silence, background noise, or unintelligible, return an empty string.
 - Return ONLY the plain text transcript delta without markdown or explanation.`;
 

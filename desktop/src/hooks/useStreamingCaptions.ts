@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { shortLanguageCode } from "../lib/language";
 import { sendStreamChunkApi } from "../services/api.service";
 
-const CHUNK_DURATION_MS = 6500;
+const CHUNK_DURATION_MS = 4000;
 const SUGGESTION_AUTODISMISS_MS = 20000;
 
 function pickMimeType(): string {
